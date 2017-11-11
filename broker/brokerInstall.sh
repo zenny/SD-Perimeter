@@ -5,7 +5,7 @@ function infoGather {
   OPENVPN_DIR=/etc/openvpn
   DB_CONFIG=$OPENVPN_DIR/scripts/config.sh
   ##Check for pre-existing configuration and create if it does not exist
-  if [ ! -e "$OPENVPN_DIR/scripts" ]
+  if [ ! -e "$OPENVPN_DIR/scripts" ]; then
     mkdir -p $OPENVPN_DIR/scripts
   fi
   if [ ! -e "$DB_CONFIG" ]; then
@@ -21,19 +21,18 @@ function infoGather {
     mkdir -p $BASE_WIN_FILES
     mkdir -p $OPENVPN_CLIENT_BASE
     ##Write out initial config script
-    echo "#!/bin/bash" >> $DB_CONFIG
-    echo "####Directories" >> $DB_CONFIG
-    echo "OPENVPN_DIR=/etc/openvpn" >> $DB_CONFIG
-    echo "DB_CONFIG=\$OPENVPN_DIR/scripts/config.sh" >> $DB_CONFIG
-    echo "OPENVPN_CLIENT_FOLDER=\$OPENVPN_DIR/client" >> $DB_CONFIG
-    echo "OUTPUT_DIR=\$OPENVPN_DIR/client-configs/files" >> $DB_CONFIG
-    echo "BASE_CONFIG=\$OPENVPN_DIR/client-configs/base.conf" >> $DB_CONFIG
-    echo "BASE_WIN_FILES=\$OPENVPN_DIR/client-configs/winfiles" >> $DB_CONFIG
-    echo "OPENVPN_CLIENT_BASE=\$OPENVPN_CLIENT_FOLDER/sdp-base" >> $DB_CONFIG
-    echo "" > $DB_CONFIG
-  else
-    . $DB_CONFIG
-  fi  
+    echo "#!/bin/bash
+    ####Directories
+    OPENVPN_DIR=/etc/openvpn
+    DB_CONFIG=\$OPENVPN_DIR/scripts/config.sh
+    OPENVPN_CLIENT_FOLDER=\$OPENVPN_DIR/client
+    OUTPUT_DIR=\$OPENVPN_DIR/client-configs/files
+    BASE_CONFIG=\$OPENVPN_DIR/client-configs/base.conf
+    BASE_WIN_FILES=\$OPENVPN_DIR/client-configs/winfiles
+    OPENVPN_CLIENT_BASE=\$OPENVPN_CLIENT_FOLDER/sdp-base" > $DB_CONFIG
+  fi
+  . $DB_CONFIG
+    
 
   ##Prompt user for information if not already gathered
   if [ -n "$KEY_EMAIL" ]; then
