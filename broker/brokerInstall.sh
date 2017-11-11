@@ -10,4 +10,4 @@ apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xF1656F24C74C
 add-apt-repository 'deb [arch=amd64,i386,ppc64el] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu xenial main'
 
 apt-get update
-apt install -y mariadb-server fwknop-server fwknop-client squid zip unzip mutt redsocks
+apt install -y mariadb-server fwknop-server fwknop-client squid zip unzip mutt redsocks postfix
