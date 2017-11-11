@@ -149,6 +149,8 @@ function configureDatabase {
   cp $DIR/mariadbconf/50-client.cnf /etc/mysql/mariadb.conf.d/
   sed -i 's/user\=.*/user\=$USER/' /etc/mysql/mariadb.conf.d/50-client.cnf
   sed -i 's/password\=.*/password\=$PASS/' /etc/mysql/mariadb.conf.d/50-client.cnf
+  ## Remove Database root password from config file
+  #sed -i '/rootDBpass/d' $DB_CONFIG
   ## Restart database
   service mysql restart
 }
