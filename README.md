@@ -1,6 +1,6 @@
 # poorManSDP
 
-This project is focused on providing a set of scripts that can be used to create a Software Defined Perimeter using open source tools readily available in common Linux distributions. 
+This project is focused on providing a set of scripts that can be used to create a Software Defined Perimeter using open source tools readily available in common Linux distributions. The techniques implemented here are heavily influenced by Google's <a href="https://www.beyondcorp.com/">BeyonCorp</a> and the Cloud Security Alliance model of <a href="https://cloudsecurityalliance.org/group/software-defined-perimeter/#_overview">Software Defined Perimeter</a>.
 
 Tools:
 
@@ -10,6 +10,6 @@ Tools:
 
 <a href="http://www.squid-cache.org/">Squid</a> - Used to provide authorization to upstream resources.  Squid is being used because of it's ability to use external authentication helpers and assign access based on group memberships from either a common database, or LDAP server.  Squid also gives us the granularity to apply rules based on destination host, URI, port or a combination.
 
-<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Proxy_servers_and_tunneling/Proxy_Auto-Configuration_(PAC)_file">Proxy Auto-Configuration</a> - This is a simple a text file using javascript that can be loaded into a web browser to direct specific websites toward our Squid Proxy.
+<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Proxy_servers_and_tunneling/Proxy_Auto-Configuration_(PAC)_file">Proxy Auto-Configuration</a> - This is a simple a text file using javascript that can be loaded into a web browser to direct specific websites toward our Squid proxy.
 
-Proxification App - These applications will not be covered in detail here, but they are necessary for forwarding traffic through our Squid proxy.  A list of proxification apps can be found <a href="https://en.wikipedia.org/wiki/Comparison_of_proxifiers">here</a>.
+<a href="https://github.com/darkk/redsocks">Redsocks Proxy</a> - This tool will be used to forward non-web traffic through our Squid proxy.
