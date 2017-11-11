@@ -38,6 +38,7 @@ function configureDatabase {
     cp mariadbconf/50-server.cnf /etc/mysql/mariadb.conf.d/
   fi
   ## Source in OpenVPN database
+  ## Special thanks: https://sysadmin.compxtreme.ro/how-to-install-a-openvpn-system-based-on-userpassword-authentication-with-mysql-day-control-libpam-mysql/
   mysql -u root -p$rootDBpass < mariadbconf/openvpn.sql
   ## Create OpenVPN database user
   mysql -u root -p$rootDBpass -e "CREATE USER openvpn@'%' IDENTIFIED BY '${ovpnDBpass}'"
