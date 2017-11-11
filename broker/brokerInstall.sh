@@ -1,4 +1,5 @@
 #!/bin/bash
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 ####Information Gathering
 function infoGather {
@@ -98,7 +99,7 @@ function infoGather {
     DB='openvpn'
     HOST='127.0.0.1'
     PORT='3306'
-    echo "####Database Setting" >> DB_CONFIG
+    echo "####Database Setting" >> $DB_CONFIG
     echo "HOST=$HOST" >> $DB_CONFIG
     echo "PORT=$PORT" >> $DB_CONFIG
     echo "USER=$USER" >> $DB_CONFIG
@@ -135,17 +136,17 @@ function configureDatabase {
   ## Put small memory server configs in place
   MEMTOTAL=`cat /proc/meminfo | grep MemTotal | awk '{print $2}'`
   if [ $MEMTOTAL -lt 1000000 ] ; then
-    cp mariadbconf/50-server.cnf /etc/mysql/mariadb.conf.d/
+    cp $DIR/mariadbconf/50-server.cnf /etc/mysql/mariadb.conf.d/
   fi
   ## Source in OpenVPN database
   ## Special thanks: https://sysadmin.compxtreme.ro/how-to-install-a-openvpn-system-based-on-userpassword-authentication-with-mysql-day-control-libpam-mysql/
-  mysql -u root -p$rootDBpass < mariadbconf/openvpn.sql
+  mysql -u root -p$rootDBpass < $DIR/mariadbconf/openvpn.sql
   ## Create OpenVPN database user
   mysql -u root -p$rootDBpass -e "CREATE USER $USER@'%' IDENTIFIED BY '${PASS}'"
   mysql -u root -p$rootDBpass -e "GRANT ALL PRIVILEGES ON $DB.* TO '$USER'@'%'"
   mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
   ## Put default user file in place
-  cp mariadbconf/50-client.cnf /etc/mysql/mariadb.conf.d/
+  cp $DIR/mariadbconf/50-client.cnf /etc/mysql/mariadb.conf.d/
   sed -i 's/user\=.*/user\=$USER/' /etc/mysql/mariadb.conf.d/50-client.cnf
   sed -i 's/password\=.*/password\=$PASS/' /etc/mysql/mariadb.conf.d/50-client.cnf
   ## Restart database
