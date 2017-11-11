@@ -33,16 +33,15 @@ function infoGather {
   fi
   . $DB_CONFIG
     
-
   ##Prompt user for information if not already gathered
-  if [ -n "$KEY_EMAIL" ]; then
+  if [ -z ${KEY_EMAIL+x} ]; then
     read -p "Choose your Admin email [Default: admin@mail.com]" KEY_EMAIL
     KEY_EMAIL=${KEY_EMAIL:-admin@mail.com}
     echo "####Easy-RSA variables" >> $DB_CONFIG
     echo "KEY_EMAIL=$KEY_EMAIL" >> $DB_CONFIG
     echo ""
   fi
-  if [ -n "$EASY_RSA_DIR" ]; then
+  if [ -z ${OPENVPN_RSA_DIR+x} ]; then
     read -p "Choose your EasyRSA installation Directory [Default: /etc/openvpn/easy-rsa]" OPENVPN_RSA_DIR
     OPENVPN_RSA_DIR=${OPENVPN_RSA_DIR:-/etc/openvpn/easy-rsa}
     OPENVPN_KEYS=$OPENVPN_RSA_DIR/keys
@@ -50,48 +49,49 @@ function infoGather {
     echo "OPENVPN_KEYS=\$OPENVPN_RSA_DIR/keys" >> $DB_CONFIG
     echo ""
   fi
-  if [ -n "$KEY_NAME" ]; then
+  if [ -z ${KEY_NAME+x} ]; then
     read -p "Choose a name for your Certificate Authority [Default: MyCA]" KEY_NAME
     KEY_NAME=${KEY_NAME:-MyCA}
     echo "KEY_NAME=$KEY_NAME" >> $DB_CONFIG
     echo ""
   fi
-  if [ -n "$KEY_COUNTRY" ]; then
+  if [ -z ${KEY_COUNTRY+x} ]; then
     read -p "Choose the country for your CA [Default: US]" KEY_COUNTRY
     KEY_COUNTRY=${KEY_COUNTRY:-US}
     echo "KEY_COUNTRY=$KEY_COUNTRY" >> $DB_CONFIG
     echo ""
   fi
-  if [ -n "$KEY_PROVINCE" ]; then
+  if [ -z ${KEY_PROVINCE+x} ]; then
     read -p "Choose the state/province for your CA [Default: NA]" KEY_PROVINCE
     KEY_PROVINCE=${KEY_PROVINCE:-NA}
     echo "KEY_PROVINCE=$KEY_PROVINCE" >> $DB_CONFIG
     echo ""
   fi
-  if [ -n "$KEY_CITY" ]; then
+  if [ -z ${KEY_CITY+x} ]; then
     read -p "Choose the city for your CA [Default: None]" KEY_CITY
     KEY_CITY=${KEY_CITY:-None}
     echo "KEY_CITY=$KEY_CITY" >> $DB_CONFIG
     echo ""
   fi
-  if [ -n "$KEY_ORG" ]; then
+  if [ -z ${KEY_ORG+x} ]; then
     read -p "Choose the Orgonization for your CA [Default: None]" KEY_ORG
     KEY_ORG=${KEY_ORG:-None}
     echo "KEY_ORG=$KEY_ORG" >> $DB_CONFIG
     echo ""
   fi
-  if [ -n "$KEY_OU" ]; then
+  if [ -z ${KEY_OU+x} ]; then
     read -p "Choose the Organizational Unit for your CA [Default: None]" KEY_OU
     KEY_OU=${KEY_OU:-None}
     echo "KEY_OU=$KEY_OU" >> $DB_CONFIG
     echo ""
   fi
-  if [ -n "$rootDBpass" ]; then
+  if [ -z ${rootDBpass+x} ]; then
     read -sp "Choose a password for your database root user [Default: rootdbpass]" rootDBpass
     rootDBpass=${rootDBpass:-rootdbpass}
+    echo "rootDBpass=$rootDBpass" >> $DB_CONFIG
     echo ""
   fi
-  if [ -n "$PASS" ]; then
+  if [ -z ${PASS+x} ]; then
     read -sp "Choose a password for your OpenVPN database user [Default: ovpnpass]" PASS
     PASS=${PASS:-ovpnpass}
     USER='openvpn'
