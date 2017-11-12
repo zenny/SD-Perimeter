@@ -1,4 +1,3 @@
-CREATE DATABASE openvpn;
 USE openvpn;
 
 CREATE TABLE IF NOT EXISTS `user` (
