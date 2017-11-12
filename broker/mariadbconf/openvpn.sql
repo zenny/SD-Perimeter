@@ -1,5 +1,3 @@
-USE openvpn;
-
 CREATE TABLE IF NOT EXISTS `user` (
     `user_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
     `user_pass` varchar(32) COLLATE utf8_unicode_ci NOT NULL DEFAULT '1234',
