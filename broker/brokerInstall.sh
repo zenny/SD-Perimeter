@@ -5,6 +5,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 function infoGather {
   OPENVPN_DIR=/etc/openvpn
   DB_CONFIG=$OPENVPN_DIR/scripts/config.sh
+  PRIMARY_IP=`ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1'`
+  PRIMARY_IF=`ifconfig | grep -B1 "inet addr:$PRIMARY_IP" | awk '$1!="inet" && $1!="--" {print $1}'`
   ##Check for pre-existing configuration and create if it does not exist
   if [ ! -e "$OPENVPN_DIR/scripts" ]; then
     mkdir -p $OPENVPN_DIR/scripts
@@ -26,54 +28,54 @@ function infoGather {
     
   ##Prompt user for information if not already gathered
   if [ -z ${KEY_EMAIL+x} ]; then
-    read -p "Choose your Admin email [Default: admin@mail.com]" KEY_EMAIL
+    read -p "Choose your Admin email [Default: admin@mail.com]: " KEY_EMAIL
     KEY_EMAIL=${KEY_EMAIL:-admin@mail.com}
     echo ""
   fi
   if [ -z ${OPENVPN_RSA_DIR+x} ]; then
-    read -p "Choose your EasyRSA installation Directory [Default: /etc/openvpn/easy-rsa]" OPENVPN_RSA_DIR
+    read -p "Choose your EasyRSA installation Directory [Default: /etc/openvpn/easy-rsa]: " OPENVPN_RSA_DIR
     OPENVPN_RSA_DIR=${OPENVPN_RSA_DIR:-/etc/openvpn/easy-rsa}
     OPENVPN_KEYS=$OPENVPN_RSA_DIR/keys
     echo ""
   fi
   if [ -z ${KEY_NAME+x} ]; then
-    read -p "Choose a name for your Certificate Authority [Default: MyCA]" KEY_NAME
+    read -p "Choose a name for your Certificate Authority [Default: MyCA]: " KEY_NAME
     KEY_NAME=${KEY_NAME:-MyCA}
     echo ""
   fi
   if [ -z ${KEY_COUNTRY+x} ]; then
-    read -p "Choose the country for your CA [Default: US]" KEY_COUNTRY
+    read -p "Choose the country for your CA [Default: US]: " KEY_COUNTRY
     KEY_COUNTRY=${KEY_COUNTRY:-US}
     echo ""
   fi
   if [ -z ${KEY_PROVINCE+x} ]; then
-    read -p "Choose the state/province for your CA [Default: NA]" KEY_PROVINCE
+    read -p "Choose the state/province for your CA [Default: NA]: " KEY_PROVINCE
     KEY_PROVINCE=${KEY_PROVINCE:-NA}
     echo ""
   fi
   if [ -z ${KEY_CITY+x} ]; then
-    read -p "Choose the city for your CA [Default: None]" KEY_CITY
+    read -p "Choose the city for your CA [Default: None]: " KEY_CITY
     KEY_CITY=${KEY_CITY:-None}
     echo ""
   fi
   if [ -z ${KEY_ORG+x} ]; then
-    read -p "Choose the Orgonization for your CA [Default: None]" KEY_ORG
+    read -p "Choose the Orgonization for your CA [Default: None]: " KEY_ORG
     KEY_ORG=${KEY_ORG:-None}
     echo ""
   fi
   if [ -z ${KEY_OU+x} ]; then
-    read -p "Choose the Organizational Unit for your CA [Default: None]" KEY_OU
+    read -p "Choose the Organizational Unit for your CA [Default: None]: " KEY_OU
     KEY_OU=${KEY_OU:-None}
     echo ""
   fi
   if [ -z ${rootDBpass+x} ] && [ ! -f /etc/mysql/debian.conf ]; then
     NEWDATABASE=true
-    read -sp "Choose a password for your database root user [Default: rootdbpass]" rootDBpass
+    read -sp "Choose a password for your database root user [Default: rootdbpass]: " rootDBpass
     rootDBpass=${rootDBpass:-rootdbpass}
     echo ""
   fi
   if [ -z ${PASS+x} ]; then
-    read -sp "Choose a password for your OpenVPN database user [Default: ovpnpass]" PASS
+    read -sp "Choose a password for your OpenVPN database user [Default: ovpnpass]: " PASS
     PASS=${PASS:-ovpnpass}
     USER='openvpn'
     DB='openvpn'
@@ -82,22 +84,26 @@ function infoGather {
     echo ""
   fi
   if [ -z ${CLIENT_NET+x} ]; then
-    read -p "Choose the network Subnet for the client VPN [Default: 10.255.4.0/22]" CLIENT_NET
+    #read -p "Choose the network Subnet for the client VPN [Default: 10.255.4.0/22]: " CLIENT_NET
     CLIENT_NET=${CLIENT_NET:-10.255.4.0/22}
+    CLIENT_GATEWAY=10.255.4.1
+    CLIENT_BROADCAST=10.255.7.255
     echo ""
   fi
   if [ -z ${GATEWAY_NET+x} ]; then
-    read -p "Choose the network Subnet for the gateway VPN [Default: 10.255.8.0/24]" GATEWAY_NET
+    #read -p "Choose the network Subnet for the gateway VPN [Default: 10.255.8.0/24]: " GATEWAY_NET
     GATEWAY_NET=${GATEWAY_NET:-10.255.8.0/24}
+    GATEWAY_GATEWAY=10.255.8.1
+    GATEWAY_BROADCAST=10.255.8.255
     echo ""
   fi
   if [ -z ${CLIENT_VPN_PORT+x} ]; then
-    read -p "Choose the VPN port for the client VPN [Default: 1195]" CLIENT_VPN_PORT
+    read -p "Choose the VPN port for the client VPN [Default: 1195]: " CLIENT_VPN_PORT
     CLIENT_VPN_PORT=${CLIENT_VPN_PORT:-1195}
     echo ""
   fi
   if [ -z ${GATEWAY_VPN_PORT+x} ]; then
-    read -p "Choose the VPN port for the gateway VPN [Default: 1194]" GATEWAY_VPN_PORT
+    read -p "Choose the VPN port for the gateway VPN [Default: 1194]: " GATEWAY_VPN_PORT
     GATEWAY_VPN_PORT=${GATEWAY_VPN_PORT:-1194}
     echo ""
   fi
@@ -113,6 +119,9 @@ function infoGather {
     NGINX_PORT=80
     echo ""
   fi
+}
+
+function writeConfig {
   ##Re-Write Config File with latest info
   echo "Writing master config file"
   echo "#!/bin/bash" > $DB_CONFIG
@@ -145,8 +154,14 @@ function infoGather {
   echo "DB=$DB" >> $DB_CONFIG
   echo "" >> $DB_CONFIG
   echo "####Network Setting" >> $DB_CONFIG
+  echo "PRIMARY_IP=$PRIMARY_IP" >> $DB_CONFIG
+  echo "PRIMARY_IF=$PRIMARY_IF" >> $DB_CONFIG
   echo "CLIENT_NET=$CLIENT_NET" >> $DB_CONFIG
+  echo "CLIENT_GATEWAY=$CLIENT_GATEWAY" >> $DB_CONFIG
+  echo "CLIENT_BROADCAST=$CLIENT_BROADCAST" >> $DB_CONFIG
   echo "GATEWAY_NET=$GATEWAY_NET" >> $DB_CONFIG
+  echo "GATEWAY_GATEWAY=$GATEWAY_GATEWAY" >> $DB_CONFIG
+  echo "GATEWAY_BROADCAST=$GATEWAY_BROADCAST" >> $DB_CONFIG
   echo "CLIENT_VPN_PORT=$CLIENT_VPN_PORT" >> $DB_CONFIG
   echo "GATEWAY_VPN_PORT=$GATEWAY_VPN_PORT" >> $DB_CONFIG
   echo "SQUID_PORT=$SQUID_PORT" >> $DB_CONFIG
@@ -201,8 +216,8 @@ function configureDatabase {
   ## Put default user file in place
   if [ ! -e "/etc/mysql/mariadb.conf.d/50-client.cnf" ]; then
     cp $DIR/mariadbconf/50-client.cnf /etc/mysql/mariadb.conf.d/
-    sed -i 's/user\=.*/user\=$USER/' /etc/mysql/mariadb.conf.d/50-client.cnf
-    sed -i 's/password\=.*/password\=$PASS/' /etc/mysql/mariadb.conf.d/50-client.cnf
+    sed -i "s/user\=.*/user\=$USER/" /etc/mysql/mariadb.conf.d/50-client.cnf
+    sed -i "s/password\=.*/password\=$PASS/" /etc/mysql/mariadb.conf.d/50-client.cnf
   fi
 }
 
@@ -234,28 +249,60 @@ function configureFirewall {
 }
 
 function configureFwknop {
-
+  ## Create Keys
+  FWKNOP_DIR=/etc/fwknop
+  FWKNOP_KEYS=$FWKNOP_DIR/fwknop_keys.conf
+  FWKNOP_ACCESS=$FWKNOP_DIR/access.conf
+  FWKNOP_FWKNOPD=$FWKNOP_DIR/fwknopd.conf
+  fwknop --key-gen --key-gen-file $FWKNOP_KEYS
+  FWKNOP_HMAC=`grep HMAC_KEY_BASE64 /etc/fwknop/fwknop_keys.conf | awk '{print $2}'`
+  FWKNOP_RIJNDAEL=`grep KEY_BASE64 /etc/fwknop/fwknop_keys.conf | grep -v HMAC | awk '{print $2}'`
+  ## Make Backups of default config files
+  if [ ! -e "${FWKNOP_ACCESS}.orig" ]; then
+    mv $FWKNOP_ACCESS ${FWKNOP_ACCESS}.orig
+  fi
+  if [ ! -e "${FWKNOP_FWKNOPD}.orig" ]; then
+    mv $FWKNOP_FWKNOPD ${FWKNOP_FWKNOPD}.orig
+  fi
+  ## Create access.conf
+  echo "%include_keys ${FWKNOP_KEYS}" > $FWKNOP_ACCESS
+  echo "OPEN_PORTS    udp/${CLIENT_VPN_PORT},udp/${GATEWAY_VPN_PORT},tcp/22" >> $FWKNOP_ACCESS
+  echo "FW_ACCESS_TIMEOUT    10" >> $FWKNOP_ACCESS
+  echo "" >> $FWKNOP_ACCESS
+  echo "SOURCE    ANY" >> $FWKNOP_ACCESS
+  echo "KEY_BASE64    $FWKNOP_RIJNDAEL" >> $FWKNOP_ACCESS
+  echo "HMAC_KEY_BASE64    $FWKNOP_HMAC" >> $FWKNOP_ACCESS
+  chmod 600 $FWKNOP_ACCESS
+  ## Create fwknopd.conf
+  echo "PCAP_INTF    ${PRIMARY_IF};" > $FWKNOP_FWKNOPD
+  echo "MAX_SPA_PACKET_AGE    30;" >> $FWKNOP_FWKNOPD
+  chmod 600 $FWKNOP_FWKNOPD
+  ## Update default config so fwknop can run as a daemon
+  sed -i "s/START_DAEMON\=.*/START_DAEMON\=\"yes\"/" /etc/default/fwknop-server
+  ## Restart fwknop
+  service fwknop-server restart
 }
 
 function configureEasyrsa {
-
+  echo ""
 }
 
 function configureOpenvpn {
-
+  echo ""
 }
 
 function configureSquid {
-
+  echo ""
 }
 
 function configureRedsocks {
-
+  echo ""
 }
 
 ### Execute order
 infoGather
 installPackages
+writeConfig
 configureDatabase
 configureFirewall
 configureFwknop
