@@ -67,6 +67,7 @@ function infoGather {
     echo ""
   fi
   if [ -z ${rootDBpass+x} ] && [ ! -f /etc/mysql/debian.conf ]; then
+    NEWDATABASE=true
     read -sp "Choose a password for your database root user [Default: rootdbpass]" rootDBpass
     rootDBpass=${rootDBpass:-rootdbpass}
     echo ""
@@ -170,8 +171,7 @@ function installPackages {
 
 ####Configure Mariadb Installation
 function configureDatabase {
-  DBPASSWDCOUNT=`grep -c password /etc/mysql/debian.cnf`
-  if [ $DBPASSWDCOUNT -lt 1 ]; then
+  if [ "$NEWDATABASE" == "true" ]; then
     ## Equivalent of mysql_secure_installation
     ## Special thanks: http://bertvv.github.io/notes-to-self/2015/11/16/automating-mysql_secure_installation/
     mysqladmin password "$rootDBpass"
@@ -179,6 +179,11 @@ function configureDatabase {
     mysql -u root -p$rootDBpass -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1')"
     mysql -u root -p$rootDBpass -e "DROP DATABASE test"
     mysql -u root -p$rootDBpass -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\_%'"
+    mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
+    ## Create OpenVPN database user
+    mysql -u root -p$rootDBpass -e "CREATE DATABASE $DB"
+    mysql -u root -p$rootDBpass -e "CREATE USER $USER@'%' IDENTIFIED BY '${PASS}'"
+    mysql -u root -p$rootDBpass -e "GRANT ALL PRIVILEGES ON $DB.* TO '$USER'@'%'"
     mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
   fi
   if [ ! -e "/etc/mysql/mariadb.conf.d/50-server.cnf" ]; then
@@ -190,13 +195,6 @@ function configureDatabase {
       service mysql restart
     fi
   fi  
-  ## Create OpenVPN database user
-  if [ ! -e "/var/lib/mysql/$DB" ]; then
-    mysql -u root -p$rootDBpass -e "CREATE DATABASE $DB"
-    mysql -u root -p$rootDBpass -e "CREATE USER $USER@'%' IDENTIFIED BY '${PASS}'"
-    mysql -u root -p$rootDBpass -e "GRANT ALL PRIVILEGES ON $DB.* TO '$USER'@'%'"
-    mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
-  fi
   ## Source in OpenVPN database
   ## Special thanks: https://sysadmin.compxtreme.ro/how-to-install-a-openvpn-system-based-on-userpassword-authentication-with-mysql-day-control-libpam-mysql/
   mysql -u $USER -p$PASS $DB < $DIR/mariadbconf/openvpn.sql
