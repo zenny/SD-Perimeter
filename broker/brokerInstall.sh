@@ -107,6 +107,46 @@ function infoGather {
     echo "DB=$DB" >> $DB_CONFIG
     echo ""
   fi
+  if [ -z ${CLIENT_NET+x} ]; then
+    read -p "Choose the network Subnet for the client VPN [Default: 10.255.4.0/22]" CLIENT_NET
+    CLIENT_NET=${CLIENT_NET:-10.255.4.0/22}
+    echo "####Network Setting" >> $DB_CONFIG
+    echo "CLIENT_NET=$CLIENT_NET" >> $DB_CONFIG
+    echo ""
+  fi
+  if [ -z ${GATEWAY_NET+x} ]; then
+    read -p "Choose the network Subnet for the gateway VPN [Default: 10.255.8.0/24]" GATEWAY_NET
+    GATEWAY_NET=${GATEWAY_NET:-10.255.8.0/24}
+    echo "GATEWAY_NET=$GATEWAY_NET" >> $DB_CONFIG
+    echo ""
+  fi
+  if [ -z ${CLIENT_VPN_PORT+x} ]; then
+    read -p "Choose the VPN port for the client VPN [Default: 1195]" CLIENT_VPN_PORT
+    CLIENT_VPN_PORT=${CLIENT_VPN_PORT:-1195}
+    echo "CLIENT_VPN_PORT=$CLIENT_VPN_PORT" >> $DB_CONFIG
+    echo ""
+  fi
+  if [ -z ${GATEWAY_VPN_PORT+x} ]; then
+    read -p "Choose the VPN port for the gateway VPN [Default: 1194]" GATEWAY_VPN_PORT
+    GATEWAY_VPN_PORT=${GATEWAY_VPN_PORT:-1194}
+    echo "GATEWAY_VPN_PORT=$GATEWAY_VPN_PORT" >> $DB_CONFIG
+    echo ""
+  fi
+  if [ -z ${SQUID_PORT+x} ]; then
+    SQUID_PORT=3128
+    echo "SQUID_PORT=$SQUID_PORT" >> $DB_CONFIG
+    echo ""
+  fi
+  if [ -z ${REDSOCKS_PORT+x} ]; then
+    REDSOCKS_PORT=3129
+    echo "REDSOCKS_PORT=$REDSOCKS_PORT" >> $DB_CONFIG
+    echo ""
+  fi
+  if [ -z ${NGINX_PORT+x} ]; then
+    NGINX_PORT=80
+    echo "NGINX_PORT=$NGINX_PORT" >> $DB_CONFIG
+    echo ""
+  fi
 }
 
 ####Install required Packages
@@ -149,12 +189,32 @@ function configureDatabase {
   cp $DIR/mariadbconf/50-client.cnf /etc/mysql/mariadb.conf.d/
   sed -i 's/user\=.*/user\=$USER/' /etc/mysql/mariadb.conf.d/50-client.cnf
   sed -i 's/password\=.*/password\=$PASS/' /etc/mysql/mariadb.conf.d/50-client.cnf
-  ## Remove Database root password from config file
-  #sed -i '/rootDBpass/d' $DB_CONFIG
   ## Restart database
   service mysql restart
+}
+
+####Configure Firewall Rules
+function configureFirewall {
+  FWCONFIG=/etc/ufw/before.rules
+  echo "" >> $FWCONFIG
+  echo "##Firewall Rules for Redsocks Proxy" >> $FWCONFIG
+  echo "*nat" >> $FWCONFIG
+  echo ":PREROUTING ACCEPT [0:0]" >> $FWCONFIG
+  echo ":REDSOCKS - [0:0]" >> $FWCONFIG
+  echo "-A PREROUTING -s $CLIENT_NET -p tcp -j REDSOCKS" >> $FWCONFIG
+  echo "-A REDSOCKS -s $CLIENT_NET -p tcp --dport $NGINX_PORT -j RETURN" >> $FWCONFIG
+  echo "-A REDSOCKS -s $CLIENT_NET -p tcp --dport $SQUID_PORT -j RETURN" >> $FWCONFIG
+  echo "-A REDSOCKS -s $CLIENT_NET -p tcp -j REDIRECT --to-ports $REDSOCKS_PORT" >> $FWCONFIG
+  echo "COMMIT" >> $FWCONFIG
+  echo "##End Redsocks Proxy Rules" >> $FWCONFIG
+  ##UFW rules
+  ufw allow from $CLIENT_NET to any port $NGINX_PORT proto tcp
+  ufw allow from $CLIENT_NET to any port $SQUID_PORT proto tcp
+  ufw allow 22/tcp
+  ufw --force enable
 }
 
 infoGather
 installPackages
 configureDatabase
+configureFirewall
