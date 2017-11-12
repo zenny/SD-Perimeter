@@ -199,7 +199,7 @@ function configureDatabase {
   fi
   ## Source in OpenVPN database
   ## Special thanks: https://sysadmin.compxtreme.ro/how-to-install-a-openvpn-system-based-on-userpassword-authentication-with-mysql-day-control-libpam-mysql/
-  mysql -u $USER -p$PASS < $DIR/mariadbconf/openvpn.sql
+  mysql -u $USER -p$PASS $DB < $DIR/mariadbconf/openvpn.sql
   ## Put default user file in place
   if [ ! -e "/etc/mysql/mariadb.conf.d/50-client.cnf" ]; then
     cp $DIR/mariadbconf/50-client.cnf /etc/mysql/mariadb.conf.d/
