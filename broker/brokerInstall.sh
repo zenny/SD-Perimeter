@@ -7,6 +7,7 @@ function infoGather {
   DB_CONFIG=$OPENVPN_DIR/scripts/config.sh
   PRIMARY_IP=`ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1'`
   PRIMARY_IF=`ifconfig | grep -B1 "inet addr:$PRIMARY_IP" | awk '$1!="inet" && $1!="--" {print $1}'`
+  BROKER_HOSTNAME=sdp-broker
   ##Check for pre-existing configuration and create if it does not exist
   if [ ! -e "$OPENVPN_DIR/scripts" ]; then
     mkdir -p $OPENVPN_DIR/scripts
@@ -154,6 +155,7 @@ function writeConfig {
   echo "DB=$DB" >> $DB_CONFIG
   echo "" >> $DB_CONFIG
   echo "####Network Setting" >> $DB_CONFIG
+  echo "BROKER_HOSTNAME=$BROKER_HOSTNAME" >> $DB_CONFIG
   echo "PRIMARY_IP=$PRIMARY_IP" >> $DB_CONFIG
   echo "PRIMARY_IF=$PRIMARY_IF" >> $DB_CONFIG
   echo "CLIENT_NET=$CLIENT_NET" >> $DB_CONFIG
@@ -180,7 +182,7 @@ function installPackages {
   add-apt-repository 'deb [arch=amd64,i386,ppc64el] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu xenial main'
   export DEBIAN_FRONTEND="noninteractive"
   apt-get update
-  apt install -y mariadb-server fwknop-server fwknop-client squid zip unzip mutt redsocks postfix
+  apt install -y mariadb-server fwknop-server fwknop-client openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix
 }
 
 ####Configure Mariadb Installation
@@ -282,8 +284,31 @@ function configureFwknop {
   service fwknop-server restart
 }
 
+##Generate initial set of certs if a ca is not already present
 function configureEasyrsa {
-  echo ""
+  if [ ! -e $OPENVPN_RSA_DIR ]; then
+    make-cadir $OPENVPN_RSA_DIR
+    cd $OPENVPN_RSA_DIR
+    sed -i 's/\-\-interact/\-\-batch/' build-ca
+    sed -i 's/\-\-interact/\-\-batch/' build-key-server
+    sed -i "s/export KEY\_COUNTRY\=.*/export KEY\_COUNTRY\="$KEY_COUNTRY"/" vars
+    sed -i "s/export KEY\_PROVINCE\=.*/export KEY\_PROVINCE\="$KEY_PROVINCE"/" vars
+    sed -i "s/export KEY\_CITY\=.*/export KEY\_CITY\="$KEY_CITY"/" vars
+    sed -i "s/export KEY\_ORG\=.*/export KEY\_ORG\="$KEY_ORG"/" vars
+    sed -i "s/export KEY\_EMAIL\=.*/export KEY\_EMAIL\="$KEY_EMAIL"/" vars
+    sed -i "s/export KEY\_OU\=.*/export KEY\_OU\="$KEY_OU"/" vars
+    sed -i "s/export KEY\_NAME\=.*/export KEY\_NAME\="$KEY_NAME"/" vars
+    source vars
+    ./clean-all
+    ./build-ca
+    ./build-dh
+    ./build-key-server $BROKER_HOSTNAME
+    openvpn --genkey --secret $OPENVPN_KEYS/ta.key
+    ## Create and revoke one certificate so that the CRL file is created
+    sed -i 's/\-\-interact/\-\-batch/' build-key
+    ./build-key revokeme
+    ./revoke-full revokeme
+  fi
 }
 
 function configureOpenvpn {
