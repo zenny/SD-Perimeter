@@ -66,7 +66,7 @@ function infoGather {
     KEY_OU=${KEY_OU:-None}
     echo ""
   fi
-  if [ -z ${rootDBpass+x} && ! -f /etc/mysql/debian.conf ]; then
+  if [ -z ${rootDBpass+x} ] && [ ! -f /etc/mysql/debian.conf ]; then
     read -sp "Choose a password for your database root user [Default: rootdbpass]" rootDBpass
     rootDBpass=${rootDBpass:-rootdbpass}
     echo ""
