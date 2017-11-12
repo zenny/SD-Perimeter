@@ -59,7 +59,7 @@ function infoGather {
     echo ""
   fi
   if [ -z ${KEY_ORG+x} ]; then
-    read -p "Choose the Orgonization for your CA [Default: None]: " KEY_ORG
+    read -p "Choose the Organization for your CA [Default: None]: " KEY_ORG
     KEY_ORG=${KEY_ORG:-None}
     echo ""
   fi
@@ -166,7 +166,6 @@ function writeConfig {
   echo "GATEWAY_VPN_PORT=$GATEWAY_VPN_PORT" >> $DB_CONFIG
   echo "SQUID_PORT=$SQUID_PORT" >> $DB_CONFIG
   echo "REDSOCKS_PORT=$REDSOCKS_PORT" >> $DB_CONFIG
-  echo "REDSOCKS_PORT=$REDSOCKS_PORT" >> $DB_CONFIG
   echo "NGINX_PORT=$NGINX_PORT" >> $DB_CONFIG
 }
 
@@ -192,11 +191,11 @@ function configureDatabase {
     mysqladmin password "$rootDBpass"
     mysql -u root -p$rootDBpass -e "DELETE FROM mysql.user WHERE User=''"
     mysql -u root -p$rootDBpass -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1')"
-    mysql -u root -p$rootDBpass -e "DROP DATABASE test"
+    mysql -u root -p$rootDBpass -e "DROP DATABASE IF EXISTS test"
     mysql -u root -p$rootDBpass -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\_%'"
     mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
     ## Create OpenVPN database user
-    mysql -u root -p$rootDBpass -e "CREATE DATABASE $DB"
+    mysql -u root -p$rootDBpass -e "CREATE DATABASE IF NOT EXISTS $DB"
     mysql -u root -p$rootDBpass -e "CREATE USER $USER@'%' IDENTIFIED BY '${PASS}'"
     mysql -u root -p$rootDBpass -e "GRANT ALL PRIVILEGES ON $DB.* TO '$USER'@'%'"
     mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
@@ -248,6 +247,7 @@ function configureFirewall {
   ufw --force enable
 }
 
+####Configure fwknop
 function configureFwknop {
   ## Create Keys
   FWKNOP_DIR=/etc/fwknop
@@ -265,8 +265,7 @@ function configureFwknop {
     mv $FWKNOP_FWKNOPD ${FWKNOP_FWKNOPD}.orig
   fi
   ## Create access.conf
-  echo "%include_keys ${FWKNOP_KEYS}" > $FWKNOP_ACCESS
-  echo "OPEN_PORTS    udp/${CLIENT_VPN_PORT},udp/${GATEWAY_VPN_PORT},tcp/22" >> $FWKNOP_ACCESS
+  echo "OPEN_PORTS    udp/${CLIENT_VPN_PORT},udp/${GATEWAY_VPN_PORT},tcp/22" > $FWKNOP_ACCESS
   echo "FW_ACCESS_TIMEOUT    10" >> $FWKNOP_ACCESS
   echo "" >> $FWKNOP_ACCESS
   echo "SOURCE    ANY" >> $FWKNOP_ACCESS
