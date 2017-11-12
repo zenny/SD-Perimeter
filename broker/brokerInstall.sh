@@ -214,7 +214,32 @@ function configureFirewall {
   ufw --force enable
 }
 
+function configureEasyrsa {
+
+}
+
+function configureOpenvpn {
+
+}
+
+function configureSquid {
+
+}
+
+function configureRedsocks {
+
+}
+
+### Execute order
 infoGather
 installPackages
 configureDatabase
 configureFirewall
+configureEasyrsa
+configureOpenvpn
+configureSquid
+configureRedsocks
+
+echo ""
+echo "Configuration is now complete!!"
+echo "Next, go configure your gateway"
