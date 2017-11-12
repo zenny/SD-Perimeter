@@ -196,11 +196,6 @@ function configureDatabase {
     mysql -u root -p$rootDBpass -e "DROP DATABASE IF EXISTS test"
     mysql -u root -p$rootDBpass -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\_%'"
     mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
-    ## Create OpenVPN database user
-    mysql -u root -p$rootDBpass -e "CREATE DATABASE IF NOT EXISTS $DB"
-    mysql -u root -p$rootDBpass -e "CREATE USER $USER@'%' IDENTIFIED BY '${PASS}'"
-    mysql -u root -p$rootDBpass -e "GRANT ALL PRIVILEGES ON $DB.* TO '$USER'@'%'"
-    mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
   fi
   if [ ! -e "/etc/mysql/mariadb.conf.d/50-server.cnf" ]; then
     ## Put small memory server configs in place
@@ -211,6 +206,11 @@ function configureDatabase {
       service mysql restart
     fi
   fi  
+  ## Create OpenVPN database user
+  mysql -u root -p$rootDBpass -e "CREATE DATABASE IF NOT EXISTS $DB"
+  mysql -u root -p$rootDBpass -e "CREATE USER $USER@'%' IDENTIFIED BY '${PASS}'"
+  mysql -u root -p$rootDBpass -e "GRANT ALL PRIVILEGES ON $DB.* TO '$USER'@'%'"
+  mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
   ## Source in OpenVPN database
   ## Special thanks: https://sysadmin.compxtreme.ro/how-to-install-a-openvpn-system-based-on-userpassword-authentication-with-mysql-day-control-libpam-mysql/
   mysql -u $USER -p$PASS $DB < $DIR/mariadbconf/openvpn.sql
@@ -308,6 +308,8 @@ function configureEasyrsa {
     sed -i 's/\-\-interact/\-\-batch/' build-key
     ./build-key revokeme
     ./revoke-full revokeme
+  else
+    echo "CA Directory already exists.  Moving on."
   fi
 }
 
