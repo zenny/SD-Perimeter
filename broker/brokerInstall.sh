@@ -286,7 +286,7 @@ function configureFwknop {
 
 ##Generate initial set of certs if a ca is not already present
 function configureEasyrsa {
-  if [ ! -e $OPENVPN_RSA_DIR ]; then
+  if [ ! -e "$OPENVPN_RSA_DIR" ]; then
     make-cadir $OPENVPN_RSA_DIR
     cd $OPENVPN_RSA_DIR
     sed -i 's/\-\-interact/\-\-batch/' build-ca
@@ -314,6 +314,54 @@ function configureEasyrsa {
 }
 
 function configureOpenvpn {
+  ##Lay Down Config Files
+  cp $DIR/openvpn/scripts/up.sh $OPENVPN_DIR/scripts/
+  cp $DIR/openvpn/scripts/down.sh $OPENVPN_DIR/scripts/
+  cp $DIR/openvpn/scripts/connect.sh $OPENVPN_DIR/scripts/
+  cp $DIR/openvpn/scripts/disconnect.sh $OPENVPN_DIR/scripts/
+  chmod +x $OPENVPN_DIR/scripts/*.sh
+  mkdir -p $OPENVPN_DIR/client
+  touch $OPENVPN_DIR/client_vpn-status.log
+  touch $OPENVPN_DIR/client_vpn_ipp.txt
+  if [ ! -e "$OPENVPN_DIR/client_vpn.conf" ]; then
+    cp $DIR/openvpn/client_vpn.conf $OPENVPN_DIR/
+  fi
+  touch $OPENVPN_DIR/gateway_vpn-status.log
+  if [ ! -e "$OPENVPN_DIR/gateway_vpn.conf" ]; then
+    cp $DIR/openvpn/gateway_vpn.conf $OPENVPN_DIR/
+  fi
+  sed -i "s@port\ .*@port\ $CLIENT_VPN_PORT@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@ca\ .*@ca\ $OPENVPN_KEYS\/ca\.crt@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@crl\-verify\ .*@crl\-verify\ $OPENVPN_KEYS\/crl\.pem@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@cert\ .*@cert\ $OPENVPN_KEYS\/$BROKER_HOSTNAME\.crt@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@key\ .*@key\ $OPENVPN_KEYS\/$BROKER_HOSTNAME\.key@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@dh\ .*@dh\ $OPENVPN_KEYS\/dh2048\.pem@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@tls\-auth\ .*@tls\-auth\ $OPENVPN_KEYS\/ta\.key\ 0@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@client\-config\-dir\ .*@client\-config\-dir\ $OPENVPN_CLIENT_FOLDER@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@ifconfig\-pool\-persist\ .*@ifconfig\-pool\-persist\ $OPENVPN_DIR\/client_vpn_ipp.txt 60@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@status\ .*@status\ $OPENVPN_DIR\/client\_vpn\-status\.log@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@up\ .*@up\ $OPENVPN_DIR\/scripts\/up\.sh@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@down\ .*@down\ $OPENVPN_DIR\/scripts\/down\.sh@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@client\-connect\ .*@client\-connect\ $OPENVPN_DIR\/scripts\/connect\.sh@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@client\-disconnect\ .*@client\-disconnect\ $OPENVPN_DIR\/scripts\/disconnect\.sh@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@port\ .*@port\ $GATEWAY_VPN_PORT@" $OPENVPN_DIR/gateway_vpn.conf
+  sed -i "s@ca\ .*@ca\ $OPENVPN_KEYS\/ca\.crt@" $OPENVPN_DIR/gateway_vpn.conf
+  sed -i "s@crl\-verify\ .*@crl\-verify\ $OPENVPN_KEYS\/crl\.pem@" $OPENVPN_DIR/gateway_vpn.conf
+  sed -i "s@cert\ .*@cert\ $OPENVPN_KEYS\/$BROKER_HOSTNAME\.crt@" $OPENVPN_DIR/gateway_vpn.conf
+  sed -i "s@key\ .*@key\ $OPENVPN_KEYS\/$BROKER_HOSTNAME\.key@" $OPENVPN_DIR/gateway_vpn.conf
+  sed -i "s@dh\ .*@dh\ $OPENVPN_KEYS\/dh2048\.pem@" $OPENVPN_DIR/gateway_vpn.conf
+  sed -i "s@tls\-auth\ .*@tls\-auth\ $OPENVPN_KEYS\/ta\.key\ 0@" $OPENVPN_DIR/gateway_vpn.conf
+  sed -i "s@status\ .*@status\ $OPENVPN_DIR\/gateway\_vpn\-status\.log@" $OPENVPN_DIR/gateway_vpn.conf
+  ## Configure Services to start
+  service openvpn stop
+  systemctl disable openvpn
+  systemctl enable openvpn@client_vpn
+  systemctl enable openvpn@gateway_vpn
+  service openvpn@client_vpn restart
+  service openvpn@gateway_vpn restart
+}
+
+function installClientManagement {
   echo ""
 }
 
@@ -334,6 +382,7 @@ configureFirewall
 configureFwknop
 configureEasyrsa
 configureOpenvpn
+installClientManagement
 configureSquid
 configureRedsocks
 
