@@ -89,6 +89,8 @@ function infoGather {
     CLIENT_NET=${CLIENT_NET:-10.255.4.0/22}
     CLIENT_GATEWAY=10.255.4.1
     CLIENT_BROADCAST=10.255.7.255
+    CLIENT_NETWORK=10.255.4.0
+    CLIENT_NETMASK=255.255.252.0
     echo ""
   fi
   if [ -z ${GATEWAY_NET+x} ]; then
@@ -96,6 +98,8 @@ function infoGather {
     GATEWAY_NET=${GATEWAY_NET:-10.255.8.0/24}
     GATEWAY_GATEWAY=10.255.8.1
     GATEWAY_BROADCAST=10.255.8.255
+    GATEWAY_NETWORK=10.255.8.0
+    GATEWAY_NETMASK=255.255.255.0
     echo ""
   fi
   if [ -z ${CLIENT_VPN_PORT+x} ]; then
@@ -161,9 +165,13 @@ function writeConfig {
   echo "CLIENT_NET=$CLIENT_NET" >> $DB_CONFIG
   echo "CLIENT_GATEWAY=$CLIENT_GATEWAY" >> $DB_CONFIG
   echo "CLIENT_BROADCAST=$CLIENT_BROADCAST" >> $DB_CONFIG
+  echo "CLIENT_NETWORK=$CLIENT_NETWORK" >> $DB_CONFIG
+  echo "CLIENT_NETMASK=$CLIENT_NETMASK" >> $DB_CONFIG
   echo "GATEWAY_NET=$GATEWAY_NET" >> $DB_CONFIG
   echo "GATEWAY_GATEWAY=$GATEWAY_GATEWAY" >> $DB_CONFIG
   echo "GATEWAY_BROADCAST=$GATEWAY_BROADCAST" >> $DB_CONFIG
+  echo "GATEWAY_NETWORK=$GATEWAY_NETWORK" >> $DB_CONFIG
+  echo "GATEWAY_NETMASK=$GATEWAY_NETMASK" >> $DB_CONFIG
   echo "CLIENT_VPN_PORT=$CLIENT_VPN_PORT" >> $DB_CONFIG
   echo "GATEWAY_VPN_PORT=$GATEWAY_VPN_PORT" >> $DB_CONFIG
   echo "SQUID_PORT=$SQUID_PORT" >> $DB_CONFIG
@@ -215,11 +223,11 @@ function configureDatabase {
   ## Special thanks: https://sysadmin.compxtreme.ro/how-to-install-a-openvpn-system-based-on-userpassword-authentication-with-mysql-day-control-libpam-mysql/
   mysql -u $USER -p$PASS $DB < $DIR/mariadbconf/openvpn.sql
   ## Put default user file in place
-  if [ ! -e "/etc/mysql/mariadb.conf.d/50-client.cnf" ]; then
-    cp $DIR/mariadbconf/50-client.cnf /etc/mysql/mariadb.conf.d/
-    sed -i "s/user\=.*/user\=$USER/" /etc/mysql/mariadb.conf.d/50-client.cnf
-    sed -i "s/password\=.*/password\=$PASS/" /etc/mysql/mariadb.conf.d/50-client.cnf
-  fi
+  #if [ ! -e "/etc/mysql/mariadb.conf.d/50-client.cnf" ]; then
+  #  cp $DIR/mariadbconf/50-client.cnf /etc/mysql/mariadb.conf.d/
+  #  sed -i "s/user\=.*/user\=$USER/" /etc/mysql/mariadb.conf.d/50-client.cnf
+  #  sed -i "s/password\=.*/password\=$PASS/" /etc/mysql/mariadb.conf.d/50-client.cnf
+  #fi
 }
 
 ####Configure Firewall Rules
@@ -337,6 +345,7 @@ function configureOpenvpn {
   sed -i "s@key\ .*@key\ $OPENVPN_KEYS\/$BROKER_HOSTNAME\.key@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@dh\ .*@dh\ $OPENVPN_KEYS\/dh2048\.pem@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@tls\-auth\ .*@tls\-auth\ $OPENVPN_KEYS\/ta\.key\ 0@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@server\ .*@server\ $CLIENT_NETWORK\ $CLIENT_NETMASK@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@client\-config\-dir\ .*@client\-config\-dir\ $OPENVPN_CLIENT_FOLDER@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@ifconfig\-pool\-persist\ .*@ifconfig\-pool\-persist\ $OPENVPN_DIR\/client_vpn_ipp.txt 60@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@status\ .*@status\ $OPENVPN_DIR\/client\_vpn\-status\.log@" $OPENVPN_DIR/client_vpn.conf
@@ -351,6 +360,7 @@ function configureOpenvpn {
   sed -i "s@key\ .*@key\ $OPENVPN_KEYS\/$BROKER_HOSTNAME\.key@" $OPENVPN_DIR/gateway_vpn.conf
   sed -i "s@dh\ .*@dh\ $OPENVPN_KEYS\/dh2048\.pem@" $OPENVPN_DIR/gateway_vpn.conf
   sed -i "s@tls\-auth\ .*@tls\-auth\ $OPENVPN_KEYS\/ta\.key\ 0@" $OPENVPN_DIR/gateway_vpn.conf
+  sed -i "s@server\ .*@server\ $GATEWAY_NETWORK\ $GATEWAY_NETMASK@" $OPENVPN_DIR/gateway_vpn.conf
   sed -i "s@status\ .*@status\ $OPENVPN_DIR\/gateway\_vpn\-status\.log@" $OPENVPN_DIR/gateway_vpn.conf
   ## Configure Services to start
   service openvpn stop
