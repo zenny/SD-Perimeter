@@ -281,8 +281,8 @@ function configureFwknop {
   if [ ! -e "$FWKNOP_KEYS" ]; then
     fwknop --key-gen --key-gen-file $FWKNOP_KEYS
   fi
-  FWKNOP_HMAC=`grep HMAC_KEY_BASE64 /etc/fwknop/fwknop_keys.conf | awk '{print $2}'`
-  FWKNOP_RIJNDAEL=`grep KEY_BASE64 /etc/fwknop/fwknop_keys.conf | grep -v HMAC | awk '{print $2}'`
+  FWKNOP_HMAC=`grep HMAC_KEY_BASE64 $FWKNOP_KEYS | awk '{print $2}'`
+  FWKNOP_RIJNDAEL=`grep KEY_BASE64 $FWKNOP_KEYS | grep -v HMAC | awk '{print $2}'`
   echo "OPEN_PORTS    udp/${CLIENT_VPN_PORT},udp/${GATEWAY_VPN_PORT},tcp/22" > $FWKNOP_ACCESS
   echo "FW_ACCESS_TIMEOUT    10" >> $FWKNOP_ACCESS
   echo "" >> $FWKNOP_ACCESS
@@ -393,6 +393,10 @@ function installClientManagement {
   chmod +x $OPENVPN_DIR/scripts/manage_clients.sh
   wget http://www.dstuart.org/fwknop/fwknop-2.6.9-w81.exe -O $BASE_WIN_FILES/fwknop.exe
   wget http://www.dstuart.org/fwknop/libfko.dll-2.6.9-w81 -O $BASE_WIN_FILES/libfko.dll
+  FWKNOP_KEYS=$FWKNOP_DIR/fwknop_keys.conf
+  FWKNOP_HMAC=`grep HMAC_KEY_BASE64 /etc/fwknop/fwknop_keys.conf | awk '{print $2}'`
+  FWKNOP_RIJNDAEL=`grep KEY_BASE64 /etc/fwknop/fwknop_keys.conf | grep -v HMAC | awk '{print $2}'`
+  sed -i "s@fwknop\.exe.*@fwknop\.exe\ \-A\ udp\/$CLIENT_VPN_PORT\ \-\-use\-hmac\ \-D\ $PRIMARY_IP\ \-s\ \-\-key\-base64\-hmac\=$FWKNOP_HMAC\ \-\-key\-base64\-rijndael\=$FWKNOP_RIJNDAEL@" $BASE_WIN_FILES/sdp-client_pre.bat
 }
 
 function configureSquid {
