@@ -69,7 +69,7 @@ function infoGather {
     KEY_OU=${KEY_OU:-None}
     echo ""
   fi
-  if [ -z ${rootDBpass+x} ] && [ ! -f /etc/mysql/debian.conf ]; then
+  if [ -z ${rootDBpass+x} ] && [ ! -f /etc/mysql/debian.cnf ]; then
     NEWDATABASE=true
     read -sp "Choose a password for your database root user [Default: rootdbpass]: " rootDBpass
     rootDBpass=${rootDBpass:-rootdbpass}
@@ -181,6 +181,7 @@ function writeConfig {
 
 ####Install required Packages
 function installPackages {
+  echo "Installing packages"
   apt-get update
   apt-get install -y software-properties-common
   ## Add fwknop PPA repo
@@ -195,6 +196,7 @@ function installPackages {
 
 ####Configure Mariadb Installation
 function configureDatabase {
+  echo "Configuring Database"
   if [ "$NEWDATABASE" == "true" ]; then
     ## Equivalent of mysql_secure_installation
     ## Special thanks: http://bertvv.github.io/notes-to-self/2015/11/16/automating-mysql_secure_installation/
@@ -215,10 +217,12 @@ function configureDatabase {
     fi
   fi  
   ## Create OpenVPN database user
-  mysql -u root -p$rootDBpass -e "CREATE DATABASE IF NOT EXISTS $DB"
-  mysql -u root -p$rootDBpass -e "CREATE USER $USER@'%' IDENTIFIED BY '${PASS}'"
-  mysql -u root -p$rootDBpass -e "GRANT ALL PRIVILEGES ON $DB.* TO '$USER'@'%'"
-  mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
+  if [ "$NEWDATABASE" == "true" ]; then
+    mysql -u root -p$rootDBpass -e "CREATE DATABASE IF NOT EXISTS $DB"
+    mysql -u root -p$rootDBpass -e "CREATE USER $USER@'%' IDENTIFIED BY '${PASS}'"
+    mysql -u root -p$rootDBpass -e "GRANT ALL PRIVILEGES ON $DB.* TO '$USER'@'%'"
+    mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
+  fi
   ## Source in OpenVPN database
   ## Special thanks: https://sysadmin.compxtreme.ro/how-to-install-a-openvpn-system-based-on-userpassword-authentication-with-mysql-day-control-libpam-mysql/
   mysql -u $USER -p$PASS $DB < $DIR/mariadbconf/openvpn.sql
@@ -232,6 +236,7 @@ function configureDatabase {
 
 ####Configure Firewall Rules
 function configureFirewall {
+  echo "Configuring Firewall"
   FWCONFIG=/etc/ufw/before.rules
   FWRULESEXIST=`grep -c REDSOCKS $FWCONFIG`
   if [ $FWRULESEXIST -lt 1 ]; then
@@ -259,14 +264,12 @@ function configureFirewall {
 
 ####Configure fwknop
 function configureFwknop {
+  echo "Configuring fwknop"
   ## Create Keys
   FWKNOP_DIR=/etc/fwknop
   FWKNOP_KEYS=$FWKNOP_DIR/fwknop_keys.conf
   FWKNOP_ACCESS=$FWKNOP_DIR/access.conf
   FWKNOP_FWKNOPD=$FWKNOP_DIR/fwknopd.conf
-  fwknop --key-gen --key-gen-file $FWKNOP_KEYS
-  FWKNOP_HMAC=`grep HMAC_KEY_BASE64 /etc/fwknop/fwknop_keys.conf | awk '{print $2}'`
-  FWKNOP_RIJNDAEL=`grep KEY_BASE64 /etc/fwknop/fwknop_keys.conf | grep -v HMAC | awk '{print $2}'`
   ## Make Backups of default config files
   if [ ! -e "${FWKNOP_ACCESS}.orig" ]; then
     mv $FWKNOP_ACCESS ${FWKNOP_ACCESS}.orig
@@ -275,6 +278,11 @@ function configureFwknop {
     mv $FWKNOP_FWKNOPD ${FWKNOP_FWKNOPD}.orig
   fi
   ## Create access.conf
+  if [ ! -e "$FWKNOP_KEYS" ]; then
+    fwknop --key-gen --key-gen-file $FWKNOP_KEYS
+  fi
+  FWKNOP_HMAC=`grep HMAC_KEY_BASE64 /etc/fwknop/fwknop_keys.conf | awk '{print $2}'`
+  FWKNOP_RIJNDAEL=`grep KEY_BASE64 /etc/fwknop/fwknop_keys.conf | grep -v HMAC | awk '{print $2}'`
   echo "OPEN_PORTS    udp/${CLIENT_VPN_PORT},udp/${GATEWAY_VPN_PORT},tcp/22" > $FWKNOP_ACCESS
   echo "FW_ACCESS_TIMEOUT    10" >> $FWKNOP_ACCESS
   echo "" >> $FWKNOP_ACCESS
@@ -294,6 +302,7 @@ function configureFwknop {
 
 ##Generate initial set of certs if a ca is not already present
 function configureEasyrsa {
+  echo "Configuring EasyRSA"
   if [ ! -e "$OPENVPN_RSA_DIR" ]; then
     make-cadir $OPENVPN_RSA_DIR
     cd $OPENVPN_RSA_DIR
@@ -322,7 +331,7 @@ function configureEasyrsa {
 }
 
 function configureOpenvpn {
-  ##Lay Down Config Files
+  echo "Configuring OpenVPN"
   cp $DIR/openvpn/scripts/up.sh $OPENVPN_DIR/scripts/
   cp $DIR/openvpn/scripts/down.sh $OPENVPN_DIR/scripts/
   cp $DIR/openvpn/scripts/connect.sh $OPENVPN_DIR/scripts/
@@ -376,11 +385,61 @@ function installClientManagement {
 }
 
 function configureSquid {
-  echo ""
+  echo "Configuring Squid"
+  SQUIDCONF=/etc/squid/squid.conf
+  if [ ! -e ${SQUIDCONF}.orig ]; then
+    mv $SQUIDCONF ${SQUIDCONF}.orig
+  fi
+  cp $DIR/squid/squid.conf $SQUIDCONF
+  cp $DIR/squid/get_user_role_db.sh /etc/squid/get_user_role_db.sh
+  sed -i "s@http\_port\ .*@http\_port\ $SQUID_PORT@" $SQUIDCONF 
+  if [ ! -e ${SQUIDCONF}.d ]; then
+    mkdir ${SQUIDCONF}.d
+  fi
+  if [ ! -e ${SQUIDCONF}.d/acl_sdp_clients.conf ]; then
+    touch ${SQUIDCONF}.d/acl_sdp_clients.conf
+  fi
+  echo "acl sdp_clients srce $CLIENT_NET" > ${SQUIDCONF}.d/acl_sdp_clients.conf
+  if [ ! -e ${SQUIDCONF}.d/cache_peers.conf ]; then
+    touch ${SQUIDCONF}.d/cache_peers.conf
+  fi
+  if [ ! -e ${SQUIDCONF}.d/acl_ports.conf ]; then
+    touch ${SQUIDCONF}.d/acl_ports.conf
+  fi
+  if [ ! -e ${SQUIDCONF}.d/acl_user_roles.conf ]; then
+    touch ${SQUIDCONF}.d/acl_user_roles.conf
+  fi
+  if [ ! -e ${SQUIDCONF}.d/acl_dstdomains.conf ]; then
+    touch ${SQUIDCONF}.d/acl_dstdomains.conf
+  fi
+  if [ ! -e ${SQUIDCONF}.d/never_direct.conf ]; then
+    touch ${SQUIDCONF}.d/never_direct.conf
+  fi
+  if [ ! -e ${SQUIDCONF}.d/http_access.conf ]; then
+    touch  ${SQUIDCONF}.d/http_access.conf
+  fi
+  echo "Restarting Squid. This usually takes a few seconds."
+  service squid restart
 }
 
 function configureRedsocks {
-  echo ""
+  echo "Configuring Redsocks"
+  REDSOCKSVERSION=`dpkg -l redsocks | grep redsocks | awk '{print $3}' | sed 's/\+.*//' | sed 's/\-.*//'`
+  if [ "$REDSOCKSVERSION" == "0.4" ]; then
+    wget http://archive.ubuntu.com/ubuntu/pool/universe/r/redsocks/redsocks_0.5-1_amd64.deb
+    dpkg -i redsocks_0.5-1_amd64.deb
+    apt-get -f install -y
+  fi
+  REDSOCKSCONF=/etc/redsocks.conf
+  if [ ! -e "${REDSOCKSCONF}.orig" ]; then
+    mv $REDSOCKSCONF ${REDSOCKSCONF}.orig
+  fi
+  cp $DIR/redsocks/redsocks.conf $REDSOCKSCONF  
+  sed -i "s@ip\ .*@ip\ \=\ ${CLIENT_GATEWAY}\;@" $REDSOCKSCONF
+  sed -i "s@port\ .*@port\ \=\ ${SQUID_PORT}\;@" $REDSOCKSCONF
+  sed -i "s@local\_ip\ .*@local\_ip\ \=\ 0\.0\.0\.0\;@" $REDSOCKSCONF
+  sed -i "s@local\_port\ .*@local\_port\ \=\ ${REDSOCKS_PORT}\;@" $REDSOCKSCONF
+  service redsocks restart
 }
 
 ### Execute order
