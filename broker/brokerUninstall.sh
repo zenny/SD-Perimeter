@@ -14,3 +14,5 @@ rm -rf /var/spool/squid
 rm -rf $OPENVPN_RSA_DIR
 rm -rf /etc/openvpn
 rm -rf /etc/fwknop
+rm -rf /etc/squid
+rm -f /etc/redsocks.conf*

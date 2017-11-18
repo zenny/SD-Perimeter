@@ -381,7 +381,18 @@ function configureOpenvpn {
 }
 
 function installClientManagement {
-  echo ""
+  echo "Putting Client Management in Place"
+  if [ ! -e $OPENVPN_DIR/client-configs ]; then
+    mkdir $OPENVPN_DIR/client-configs
+    mkdir $OUTPUT_DIR
+    mkdir $BASE_WIN_FILES
+  fi
+  cp $DIR/openvpn/client-configs/base.conf $BASE_CONFIG
+  cp $DIR/openvpn/client-configs/winfiles/* $BASE_WIN_FILES
+  cp $DIR/openvpn/scripts/manage_clients.sh $OPENVPN_DIR/scripts/
+  chmod +x $OPENVPN_DIR/scripts/manage_clients.sh
+  wget http://www.dstuart.org/fwknop/fwknop-2.6.9-w81.exe -O $BASE_WIN_FILES/fwknop.exe
+  wget http://www.dstuart.org/fwknop/libfko.dll-2.6.9-w81 -O $BASE_WIN_FILES/libfko.dll
 }
 
 function configureSquid {
