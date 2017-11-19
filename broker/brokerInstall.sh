@@ -17,6 +17,8 @@ function infoGather {
     OUTPUT_DIR=$OPENVPN_DIR/client-configs/files
     BASE_CONFIG=$OPENVPN_DIR/client-configs/base.conf
     BASE_WIN_FILES=$OPENVPN_DIR/client-configs/winfiles
+    GATEWAY_BASE_CONFIG=$OPENVPN_DIR/gateway-configs/gatewaybase.conf
+    GATEWAY_OUTPUT_DIR=$OPENVPN_DIR/gateway-configs
     OPENVPN_CLIENT_BASE=$OPENVPN_CLIENT_FOLDER/sdp-base
     touch $DB_CONFIG
     chmod +x $DB_CONFIG
@@ -139,6 +141,8 @@ function writeConfig {
   echo "BASE_CONFIG=\$OPENVPN_DIR/client-configs/base.conf" >> $DB_CONFIG
   echo "BASE_WIN_FILES=\$OPENVPN_DIR/client-configs/winfiles" >> $DB_CONFIG
   echo "OPENVPN_CLIENT_BASE=\$OPENVPN_CLIENT_FOLDER/sdp-base" >> $DB_CONFIG
+  echo "GATEWAY_BASE_CONFIG=$GATEWAY_BASE_CONFIG" >> $DB_CONFIG
+  echo "GATEWAY_OUTPUT_DIR=$GATEWAY_OUTPUT_DIR" >> $DB_CONFIG
   echo "" >> $DB_CONFIG
   echo "####Easy-RSA variables" >> $DB_CONFIG
   echo "KEY_EMAIL=$KEY_EMAIL" >> $DB_CONFIG
@@ -268,6 +272,9 @@ function configureFirewall {
 ####Configure fwknop
 function configureFwknop {
   echo "Configuring fwknop"
+  if [ ! -e "/var/fwknop" ]; then
+    mkdir /var/fwknop
+  fi 
   ## Create Keys
   FWKNOP_DIR=/etc/fwknop
   FWKNOP_KEYS=$FWKNOP_DIR/fwknop_keys.conf
@@ -299,6 +306,16 @@ function configureFwknop {
   chmod 600 $FWKNOP_FWKNOPD
   ## Update default config so fwknop can run as a daemon
   sed -i "s/START_DAEMON\=.*/START_DAEMON\=\"yes\"/" /etc/default/fwknop-server
+  ## Fix apparmor permissions
+  if [ -e "/etc/apparmor.d/usr.sbin.fwknopd" ]; then
+    if [ `grep -c -e 'network inet6 dgram,' /etc/apparmor.d/usr.sbin.fwknopd` -lt 1 ]; then
+      sed -i "s/\}//" /etc/apparmor.d/usr.sbin.fwknopd
+      echo "  /run/xtables.lock rwk,
+  network inet dgram,
+  network inet6 dgram,
+}" >> /etc/apparmor.d/usr.sbin.fwknopd
+    fi
+  fi
   ## Restart fwknop
   service fwknop-server restart
 }
@@ -394,14 +411,26 @@ function installClientManagement {
   cp $DIR/openvpn/client-configs/winfiles/* $BASE_WIN_FILES
   cp $DIR/openvpn/scripts/manage_clients.sh $OPENVPN_DIR/scripts/
   chmod +x $OPENVPN_DIR/scripts/manage_clients.sh
-  sed -i "s@verify\-x509\-name\ .*@verify\-x509\-name\ \'C\=$KEY_COUNTRY\,\ ST\=$KEY_PROVINCE\,\ L\=KEY_CITY\,\ O\=$KEY_ORG\,\ OU\=$KEY_OU\,\ CN\=$BROKER_HOSTNAME\,\ name\=$KEY_NAME\,\ emailAddress\=$KEY_EMAIL'@" $BASE_CONFIG
-  sed -i "s@remote\ .*@remote\ $PRIMARY_IP\ $CLIENT_VPN_PORT@" $BASE_CONFIG
+  sed -i "s/verify\-x509\-name\ .*/verify\-x509\-name\ \'C\=$KEY_COUNTRY\,\ ST\=$KEY_PROVINCE\,\ L\=KEY_CITY\,\ O\=$KEY_ORG\,\ OU\=$KEY_OU\,\ CN\=$BROKER_HOSTNAME\,\ name\=$KEY_NAME\,\ emailAddress\=$KEY_EMAIL'/" $BASE_CONFIG
+  sed -i "s/remote\ .*/remote\ $PRIMARY_IP\ $CLIENT_VPN_PORT/" $BASE_CONFIG
   wget http://www.dstuart.org/fwknop/fwknop-2.6.9-w81.exe -O $BASE_WIN_FILES/fwknop.exe
   wget http://www.dstuart.org/fwknop/libfko.dll-2.6.9-w81 -O $BASE_WIN_FILES/libfko.dll
   FWKNOP_KEYS=$FWKNOP_DIR/fwknop_keys.conf
   FWKNOP_HMAC=`grep HMAC_KEY_BASE64 /etc/fwknop/fwknop_keys.conf | awk '{print $2}'`
   FWKNOP_RIJNDAEL=`grep KEY_BASE64 /etc/fwknop/fwknop_keys.conf | grep -v HMAC | awk '{print $2}'`
-  sed -i "s@fwknop\.exe.*@fwknop\.exe\ \-A\ udp\/$CLIENT_VPN_PORT\ \-\-use\-hmac\ \-D\ $PRIMARY_IP\ \-s\ \-\-key\-base64\-hmac\=$FWKNOP_HMAC\ \-\-key\-base64\-rijndael\=$FWKNOP_RIJNDAEL@" $BASE_WIN_FILES/sdp-client_pre.bat
+  sed -i "s/fwknop\.exe.*/fwknop\.exe\ \-A\ udp\/$CLIENT_VPN_PORT\ \-\-use\-hmac\ \-D\ $PRIMARY_IP\ \-s\ \-\-key\-base64\-hmac\=$FWKNOP_HMAC\ \-\-key\-base64\-rijndael\=$FWKNOP_RIJNDAEL/" $BASE_WIN_FILES/sdp-client_pre.bat
+}
+
+function installGatewayManagement {
+  echo "Putting Gateway Management in Place"
+  if [ ! -e $OPENVPN_DIR/gateway-configs ]; then
+    mkdir $OPENVPN_DIR/gateway-configs
+  fi
+  cp $DIR/openvpn/gateway-configs/gatewaybase.conf $OPENVPN_DIR/gateway-configs/
+  cp $DIR/openvpn/scripts/manage_gateways.sh $OPENVPN_DIR/scripts/
+  chmod +x $OPENVPN_DIR/scripts/manage_gateways.sh
+  sed -i "s/verify\-x509\-name\ .*/verify\-x509\-name\ \'C\=$KEY_COUNTRY\,\ ST\=$KEY_PROVINCE\,\ L\=KEY_CITY\,\ O\=$KEY_ORG\,\ OU\=$KEY_OU\,\ CN\=$BROKER_HOSTNAME\,\ name\=$KEY_NAME\,\ emailAddress\=$KEY_EMAIL'/" $GATEWAY_BASE_CONFIG
+  sed -i "s/remote\ .*/remote\ $PRIMARY_IP\ $GATEWAY_VPN_PORT/" $GATEWAY_BASE_CONFIG
 }
 
 function configureSquid {
@@ -464,6 +493,19 @@ function configureRedsocks {
   service redsocks restart
 }
 
+function createManagementUser {
+  if [ `grep -c sdpmanagement /etc/passwd` -lt '1' ]; then
+    echo "Creating Management User"
+    SDP_MANAGE_HOME=/home/sdpmanagement
+    groupadd sdpmanagement
+    useradd sdpmanagement -g sdpmanagement -s /bin/bash -p '*' -N -d $SDP_MANAGE_HOME -m
+    mkdir -p $SDP_MANAGE_HOME/.ssh
+    ssh-keygen -b 2048 -t rsa -f $SDP_MANAGE_HOME/.ssh/id_rsa -q -N ""
+    cat $SDP_MANAGE_HOME/.ssh/id_rsa.pub >> $SDP_MANAGE_HOME/.ssh/authorized_keys
+    chown sdpmanagement:sdpmanagement -R $SDP_MANAGE_HOME
+  fi
+}
+
 ### Execute order
 infoGather
 installPackages
@@ -474,8 +516,10 @@ configureFwknop
 configureEasyrsa
 configureOpenvpn
 installClientManagement
+installGatewayManagement
 configureSquid
 configureRedsocks
+createManagementUser
 
 echo ""
 echo "Configuration is now complete!!"
