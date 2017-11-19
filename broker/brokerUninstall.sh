@@ -15,6 +15,7 @@ rm -rf $OPENVPN_RSA_DIR
 rm -rf /etc/openvpn
 rm -rf /etc/fwknop
 rm -rf /etc/squid
+rm -rf /var/www/html
 rm -f /etc/redsocks.conf*
 
 userdel sdpmanagement

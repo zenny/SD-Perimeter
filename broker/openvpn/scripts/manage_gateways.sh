@@ -45,7 +45,7 @@ function createCert {
 
 function createOvpn {
 	#sudo cp $OPENVPN_GATEWAY_BASE $OPENVPN_CLIENT_FOLDER/$CN
-	cat ${BASE_CONFIG} \
+	cat ${GATEWAY_BASE_CONFIG} \
 	    <(echo -e '<ca>') \
 	    ${OPENVPN_KEYS}/ca.crt \
 	    <(echo -e '</ca>\n<cert>') \
@@ -55,16 +55,15 @@ function createOvpn {
 	    <(echo -e '</key>\n<tls-auth>') \
 	    ${OPENVPN_KEYS}/ta.key \
 	    <(echo -e '</tls-auth>') \
-	    > ${OUTPUT_DIR}/$CN.ovpn
+	    > ${GATEWAY_OUTPUT_DIR}/$CN.ovpn
 	
 	# Celebrate!
-	echo "Config created at ${OUTPUT_DIR}/$CN.ovpn"
+	echo "Config created at ${GATEWAY_OUTPUT_DIR}/$CN.ovpn"
 }
 
 function revokeCert {
     echo "Revoking previous Cert"
-    rm $OUTPUT_DIR/$USERNAME.ovpn
-    rm $OUTPUT_DIR/${USERNAME}_windows_sdp.zip
+    rm $GATEWAY_OUTPUT_DIR/$USERNAME.ovpn
 
     # Enter the easy-rsa directory and establish the default variables
     cd $OPENVPN_RSA_DIR
@@ -108,6 +107,7 @@ function revokeCert {
     rm ${OPENVPN_KEYS}/$CN.key
     rm ${OPENVPN_KEYS}/$CN.csr
     sudo rm $OPENVPN_CLIENT_FOLDER/$CN
+    sudo rm $GATEWAY_OUTPUT_DIR/$CN.ovpn
     echo "Previous Certificate has been revoked"
     echo ""
 }

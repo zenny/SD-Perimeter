@@ -314,6 +314,7 @@ function configureFwknop {
   network inet dgram,
   network inet6 dgram,
 }" >> /etc/apparmor.d/usr.sbin.fwknopd
+      service apparmor restart
     fi
   fi
   ## Restart fwknop
@@ -360,13 +361,10 @@ function configureOpenvpn {
   mkdir -p $OPENVPN_DIR/client
   touch $OPENVPN_DIR/client_vpn-status.log
   touch $OPENVPN_DIR/client_vpn_ipp.txt
-  if [ ! -e "$OPENVPN_DIR/client_vpn.conf" ]; then
-    cp $DIR/openvpn/client_vpn.conf $OPENVPN_DIR/
-  fi
+  cp $DIR/openvpn/client_vpn.conf $OPENVPN_DIR/
   touch $OPENVPN_DIR/gateway_vpn-status.log
-  if [ ! -e "$OPENVPN_DIR/gateway_vpn.conf" ]; then
-    cp $DIR/openvpn/gateway_vpn.conf $OPENVPN_DIR/
-  fi
+  cp $DIR/openvpn/gateway_vpn.conf $OPENVPN_DIR/
+  ## Set Client VPN Configs
   sed -i "s@port\ .*@port\ $CLIENT_VPN_PORT@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@ca\ .*@ca\ $OPENVPN_KEYS\/ca\.crt@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@crl\-verify\ .*@crl\-verify\ $OPENVPN_KEYS\/crl\.pem@" $OPENVPN_DIR/client_vpn.conf
@@ -382,6 +380,8 @@ function configureOpenvpn {
   sed -i "s@down\ .*@down\ $OPENVPN_DIR\/scripts\/down\.sh@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@client\-connect\ .*@client\-connect\ $OPENVPN_DIR\/scripts\/connect\.sh@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@client\-disconnect\ .*@client\-disconnect\ $OPENVPN_DIR\/scripts\/disconnect\.sh@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@push\ \"dhcp-option\ PROXY\_AUTO\_CONFIG\_URL\ .*@push\ \"dhcp\-option\ PROXY\_AUTO\_CONFIG\_URL\ http\:\/\/$CLIENT_GATEWAY\/sdp\.pac\"@" $OPENVPN_DIR/client_vpn.conf
+  ## Set Gateway VPN Configs
   sed -i "s@port\ .*@port\ $GATEWAY_VPN_PORT@" $OPENVPN_DIR/gateway_vpn.conf
   sed -i "s@ca\ .*@ca\ $OPENVPN_KEYS\/ca\.crt@" $OPENVPN_DIR/gateway_vpn.conf
   sed -i "s@crl\-verify\ .*@crl\-verify\ $OPENVPN_KEYS\/crl\.pem@" $OPENVPN_DIR/gateway_vpn.conf
@@ -418,7 +418,7 @@ function installClientManagement {
   FWKNOP_KEYS=$FWKNOP_DIR/fwknop_keys.conf
   FWKNOP_HMAC=`grep HMAC_KEY_BASE64 /etc/fwknop/fwknop_keys.conf | awk '{print $2}'`
   FWKNOP_RIJNDAEL=`grep KEY_BASE64 /etc/fwknop/fwknop_keys.conf | grep -v HMAC | awk '{print $2}'`
-  sed -i "s/fwknop\.exe.*/fwknop\.exe\ \-A\ udp\/$CLIENT_VPN_PORT\ \-\-use\-hmac\ \-D\ $PRIMARY_IP\ \-s\ \-\-key\-base64\-hmac\=$FWKNOP_HMAC\ \-\-key\-base64\-rijndael\=$FWKNOP_RIJNDAEL/" $BASE_WIN_FILES/sdp-client_pre.bat
+  sed -i "s@fwknop\.exe.*@fwknop\.exe\ \-A\ udp\/$CLIENT_VPN_PORT\ \-\-use\-hmac\ \-D\ $PRIMARY_IP\ \-s\ \-\-key\-base64\-hmac\=$FWKNOP_HMAC\ \-\-key\-base64\-rijndael\=$FWKNOP_RIJNDAEL@" $BASE_WIN_FILES/sdp-client_pre.bat
 }
 
 function installGatewayManagement {
@@ -471,6 +471,12 @@ function configureSquid {
   service squid restart
 }
 
+function addBasePac {
+  PAC_FILE=/var/www/html/sdp.pac
+  cp $DIR/sdp.pac $PAC_FILE
+  sed -i "/return\ \"PROXY\ .*/return\ \"PROXY\ $CLIENT_GATEWAY\:$SQUID_PORT\"\;/" $PAC_FILE
+}
+
 function configureRedsocks {
   echo "Configuring Redsocks"
   REDSOCKSVERSION=`dpkg -l redsocks | grep redsocks | awk '{print $3}' | sed 's/\+.*//' | sed 's/\-.*//'`
@@ -518,6 +524,7 @@ configureOpenvpn
 installClientManagement
 installGatewayManagement
 configureSquid
+addBasePac
 configureRedsocks
 createManagementUser
 
