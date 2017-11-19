@@ -191,7 +191,7 @@ function installPackages {
   add-apt-repository 'deb [arch=amd64,i386,ppc64el] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu xenial main'
   export DEBIAN_FRONTEND="noninteractive"
   apt-get update
-  apt install -y mariadb-server fwknop-server fwknop-client openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix
+  apt install -y mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix
 }
 
 ####Configure Mariadb Installation
@@ -219,13 +219,16 @@ function configureDatabase {
   ## Create OpenVPN database user
   if [ "$NEWDATABASE" == "true" ]; then
     mysql -u root -p$rootDBpass -e "CREATE DATABASE IF NOT EXISTS $DB"
-    mysql -u root -p$rootDBpass -e "CREATE USER $USER@'%' IDENTIFIED BY '${PASS}'"
+    mysql -u root -p$rootDBpass -e "CREATE USER IF NOT EXISTS $USER@'%' IDENTIFIED BY '${PASS}'"
     mysql -u root -p$rootDBpass -e "GRANT ALL PRIVILEGES ON $DB.* TO '$USER'@'%'"
     mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
   fi
   ## Source in OpenVPN database
   ## Special thanks: https://sysadmin.compxtreme.ro/how-to-install-a-openvpn-system-based-on-userpassword-authentication-with-mysql-day-control-libpam-mysql/
   mysql -u $USER -p$PASS $DB < $DIR/mariadbconf/openvpn.sql
+  if [ "$NEWDATABASE" == "true" ]; then
+    mysql -u $USER -p$PASS $DB < $DIR/mariadbconf/sampledata.sql
+  fi
   ## Put default user file in place
   #if [ ! -e "/etc/mysql/mariadb.conf.d/50-client.cnf" ]; then
   #  cp $DIR/mariadbconf/50-client.cnf /etc/mysql/mariadb.conf.d/
@@ -391,6 +394,8 @@ function installClientManagement {
   cp $DIR/openvpn/client-configs/winfiles/* $BASE_WIN_FILES
   cp $DIR/openvpn/scripts/manage_clients.sh $OPENVPN_DIR/scripts/
   chmod +x $OPENVPN_DIR/scripts/manage_clients.sh
+  sed -i "s@verify\-x509\-name\ .*@verify\-x509\-name\ \'C\=$KEY_COUNTRY\,\ ST\=$KEY_PROVINCE\,\ L\=KEY_CITY\,\ O\=$KEY_ORG\,\ OU\=$KEY_OU\,\ CN\=$BROKER_HOSTNAME\,\ name\=$KEY_NAME\,\ emailAddress\=$KEY_EMAIL'@" $BASE_CONFIG
+  sed -i "s@remote\ .*@remote\ $PRIMARY_IP\ $CLIENT_VPN_PORT@" $BASE_CONFIG
   wget http://www.dstuart.org/fwknop/fwknop-2.6.9-w81.exe -O $BASE_WIN_FILES/fwknop.exe
   wget http://www.dstuart.org/fwknop/libfko.dll-2.6.9-w81 -O $BASE_WIN_FILES/libfko.dll
   FWKNOP_KEYS=$FWKNOP_DIR/fwknop_keys.conf
@@ -442,7 +447,9 @@ function configureRedsocks {
   REDSOCKSVERSION=`dpkg -l redsocks | grep redsocks | awk '{print $3}' | sed 's/\+.*//' | sed 's/\-.*//'`
   if [ "$REDSOCKSVERSION" == "0.4" ]; then
     wget http://archive.ubuntu.com/ubuntu/pool/universe/r/redsocks/redsocks_0.5-1_amd64.deb
+    echo "Installing updated redsocks via dpkg. The ouput will probably have a dpkg error."
     dpkg -i redsocks_0.5-1_amd64.deb
+    echo "Fixing dpkg error via apt-get"
     apt-get -f install -y
   fi
   REDSOCKSCONF=/etc/redsocks.conf
