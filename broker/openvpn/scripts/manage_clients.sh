@@ -149,20 +149,20 @@ function createWinBundle {
 
 function createDbEntries {
     . $DB_CONFIG
-    mysql -h$HOST -P$PORT $DB -e "insert into user (user_mail,user_start_date,user_end_date) values ('$CN', now(), now() + INTERVAL 50 year)"
-    mysql -h$HOST -P$PORT $DB -e "INSERT INTO user_group (user_id,ugroup_id) VALUES ( (select user_id from user where user_mail = '$CN'), (select ugroup_id from ugroup where ugroup_name='good'))"
-    mysql -h$HOST -P$PORT $DB -e "update user set user_enable='yes' where user_mail='$CN'"
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into user (user_mail,user_start_date,user_end_date) values ('$CN', now(), now() + INTERVAL 50 year)"
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "INSERT INTO user_group (user_id,ugroup_id) VALUES ( (select user_id from user where user_mail = '$CN'), (select ugroup_id from ugroup where ugroup_name='good'))"
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "update user set user_enable='yes' where user_mail='$CN'"
 }
 
 function disableDbEntries {
     . $DB_CONFIG
-    mysql -h$HOST -P$PORT $DB -e "update user set user_enable='no' where user_mail='$CN'"
-    mysql -h$HOST -P$PORT $DB -e "delete from user_group where user_id = (select user_id from user where user_mail = '$CN')"
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "update user set user_enable='no' where user_mail='$CN'"
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "delete from user_group where user_id = (select user_id from user where user_mail = '$CN')"
 }
 
 function enableDbEntries {
     . $DB_CONFIG
-    mysql -h$HOST -P$PORT $DB -e "update user set user_enable='yes' where user_mail='$CN'"
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "update user set user_enable='yes' where user_mail='$CN'"
 }
 
 # Check the CN doesn't already exist
