@@ -595,7 +595,7 @@ case "$response" in
         stage_gateway_now
         ;;
     *)
-        end
+        echo ""
         ;;
 esac
 

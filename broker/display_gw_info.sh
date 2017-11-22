@@ -5,12 +5,9 @@
 echo ""
 echo "The remaining configuration must be completed on your Gateway."
 echo ""
-echo "You will be prompted for the following details."
-echo "RSA Public Key:"
-echo `cat /home/sdpmanagement/.ssh/id_rsa.pub`
+echo "Enter the following command on your Gateway to create the private key:"
 echo ""
-echo "RSA Private Key:"
-echo `cat /home/sdpmanagement/.ssh/id_rsa`
+echo "echo \"`cat /home/sdpmanagement/.ssh/id_rsa`\" > /home/sdpmanagement/id_rsa"
 echo ""
-echo "Broker IP Address:"
+echo "Enter the Broker IP Address when prompted:"
 echo $PRIMARY_IP
