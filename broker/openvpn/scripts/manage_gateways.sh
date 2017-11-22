@@ -19,6 +19,8 @@ DB_CONFIG=/etc/openvpn/scripts/config.sh
 OPENVPN_KEYS=$OPENVPN_RSA_DIR/keys
 OPENVPN_GATEWAY_BASE=$OPENVPN_CLIENT_FOLDER/sdp-gateway-base
 
+. $DB_CONFIG
+
 # Either read the CN from $1 or prompt for it
 if [ -z "$1" ]
 	then echo -n "Enter new gateway common name (CN): "
@@ -112,6 +114,21 @@ function revokeCert {
     echo ""
 }
 
+function showSetupInfo {
+  echo ""
+  echo "The remaining configuration must be completed on your Gateway."
+  echo ""
+  echo "Enter the following command on your Gateway to create the private key:"
+  echo ""
+  echo "echo \"`cat /home/sdpmanagement/.ssh/id_rsa`\" > /home/sdpmanagement/id_rsa"
+  echo ""
+  echo "Enter this Broker IP Address when prompted:"
+  echo $PRIMARY_IP
+  echo ""
+  echo "Enter this Gateway Hostname when prompted:"
+  echo "$CN"
+}
+
 # Check the CN doesn't already exist
 if [ -f $OPENVPN_KEYS/$CN.crt ]
         then echo "Certificate with the CN $CN alread exists!"
@@ -147,4 +164,5 @@ if [ -f $OPENVPN_KEYS/$CN.crt ]
 else
         createCert
         createOvpn
+        showSetupInfo
 fi

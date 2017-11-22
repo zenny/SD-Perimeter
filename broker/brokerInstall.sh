@@ -584,8 +584,8 @@ echo "Broker Configuration is now complete!!"
 
 function stage_gateway_now {
   read -p "Choose a gateway hostname [Default: gateway1]: " GW_HOSTNAME
+  GW_HOSTNAME=${GW_HOSTNAME:-gateway1}
   bash $OPENVPN_DIR/scripts/manage_gateways.sh $GW_HOSTNAME
-  bash $DIR/display_gw_info.sh
 }
 
 echo ""
