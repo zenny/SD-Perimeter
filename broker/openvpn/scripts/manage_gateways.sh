@@ -12,7 +12,7 @@
 OPENVPN_RSA_DIR=/etc/openvpn/easy-rsa
 OPENVPN_CLIENT_FOLDER=/etc/openvpn/client
 GATEWAY_BASE_CONFIG=/etc/openvpn/gateway-configs/gatewaybase.conf
-GATEWAY_OUTPUT_DIR=/etc/openvpn/gateway-configs
+GATEWAY_OUTPUT_DIR=/home/sdpmanagement
 DB_CONFIG=/etc/openvpn/scripts/config.sh
 
 ## These will most likely not need editing
