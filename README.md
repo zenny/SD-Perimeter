@@ -1,4 +1,4 @@
-# poorManSDP
+# SD-Perimeter
 
 This project is NOT yet feature complete!! Installation should be considered at your own risk!
 
