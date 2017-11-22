@@ -441,6 +441,7 @@ function configureSquid {
   fi
   cp $DIR/squid/squid.conf $SQUIDCONF
   cp $DIR/squid/get_user_role_db.sh /etc/squid/get_user_role_db.sh
+  chmod +x /etc/squid/get_user_role_db.sh
   sed -i "s@http\_port\ .*@http\_port\ $SQUID_PORT@" $SQUIDCONF 
   if [ ! -e ${SQUIDCONF}.d ]; then
     mkdir ${SQUIDCONF}.d
@@ -448,13 +449,14 @@ function configureSquid {
   if [ ! -e ${SQUIDCONF}.d/acl_sdp_clients.conf ]; then
     touch ${SQUIDCONF}.d/acl_sdp_clients.conf
   fi
-  echo "acl sdp_clients srce $CLIENT_NET" > ${SQUIDCONF}.d/acl_sdp_clients.conf
+  echo "acl sdp_clients src $CLIENT_NET" > ${SQUIDCONF}.d/acl_sdp_clients.conf
   if [ ! -e ${SQUIDCONF}.d/cache_peers.conf ]; then
     touch ${SQUIDCONF}.d/cache_peers.conf
   fi
   if [ ! -e ${SQUIDCONF}.d/acl_ports.conf ]; then
     touch ${SQUIDCONF}.d/acl_ports.conf
   fi
+  echo "acl SSL_ports port 443" > ${SQUIDCONF}.d/acl_ports.conf
   if [ ! -e ${SQUIDCONF}.d/acl_user_roles.conf ]; then
     touch ${SQUIDCONF}.d/acl_user_roles.conf
   fi
