@@ -27,7 +27,7 @@ function retrieveConfig {
     echo ""
     mkdir -p /etc/openvpn/scripts
     scp -i $RSAKEY -o StrictHostKeyChecking=no sdpmanagement@$PRIMARY_IP:/home/sdpmanagement/$GW_HOSTNAME.ovpn /etc/openvpn/gateway.conf
-    scp -i $RSAKEY -o StrictHostKeyChecking=no sdpmanagement@$PRIMARY_IP:/home/sdpmanagement/gw_config.sh $CONFIG
+    scp -i $RSAKEY -o StrictHostKeyChecking=no sdpmanagement@$PRIMARY_IP:/home/sdpmanagement/${GW_HOSTNAME}_gw_config.sh $CONFIG
     chmod +x $CONFIG
   fi
 }
