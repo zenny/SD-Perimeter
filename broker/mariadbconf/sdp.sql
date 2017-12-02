@@ -97,3 +97,67 @@ PRIMARY KEY (`log_id`),
 KEY `gateway_id` (`gateway_id`)
 );
 
+CREATE TABLE IF NOT EXISTS `sdp_resource` (
+    `resource_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `resource_name` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `resource_domain` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `resource_type` enum('web','tcp') NOT NULL DEFAULT 'web',
+    `resource_enabled` enum('yes','no') NOT NULL DEFAULT 'yes',
+    `resource_start_date` date NOT NULL,
+    `resource_end_date` date NOT NULL,
+PRIMARY KEY (`resource_id`)
+);
+
+CREATE TABLE IF NOT EXISTS `sdp_port` (
+    `port_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `port_name` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `port_number` varchar(5) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `port_protocol` enum('tcp','udp') NOT NULL DEFAULT 'tcp',
+PRIMARY KEY (`port_id`),
+KEY `port_number` (`port_number`)
+);
+
+CREATE TABLE IF NOT EXISTS `sdp_resource_port` (
+    `srp_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `resource_id` int(10) unsigned NOT NULL,
+    `port_id` int(10) unsigned NOT NULL,
+PRIMARY KEY (`srp_id`),
+CONSTRAINT `fk_srp_resource_id` FOREIGN KEY (`resource_id`)
+    REFERENCES `sdp_resource` (`resource_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+CONSTRAINT `fk_srp_port_id` FOREIGN KEY (`port_id`)
+    REFERENCES `sdp_port` (`port_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `sdp_gateway_resource` (
+    `sgr_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `gateway_id` int(10) unsigned NOT NULL,
+    `resource_id` int(10) unsigned NOT NULL,
+PRIMARY KEY (`sgr_id`),
+CONSTRAINT `fk_sgr_gateway_id` FOREIGN KEY (`gateway_id`)
+    REFERENCES `gateway` (`gateway_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+CONSTRAINT `fk_sgr_resource_id` FOREIGN KEY (`resource_id`)
+    REFERENCES `sdp_resource` (`resource_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `sdp_resource_group` (
+    `srg_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `resource_id` int(10) unsigned NOT NULL,
+    `ugroup_id` int(10) unsigned NOT NULL,
+PRIMARY KEY (`srg_id`),
+CONSTRAINT `fk_srg_resource_id` FOREIGN KEY (`resource_id`)
+    REFERENCES `sdp_resource` (`resource_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+CONSTRAINT `fk_srg_group_id` FOREIGN KEY (`ugroup_id`)
+    REFERENCES `ugroup` (`ugroup_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+);

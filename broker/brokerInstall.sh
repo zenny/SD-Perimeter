@@ -79,9 +79,9 @@ function infoGather {
   fi
   if [ -z ${PASS+x} ]; then
     read -sp "Choose a password for your OpenVPN database user [Default: ovpnpass]: " PASS
-    PASS=${PASS:-ovpnpass}
-    USER='openvpn'
-    DB='openvpn'
+    PASS=${PASS:-sdpdbpass}
+    USER='sdpuser'
+    DB='sdpdb'
     HOST='127.0.0.1'
     PORT='3306'
     echo ""
@@ -229,7 +229,7 @@ function configureDatabase {
   fi
   ## Source in OpenVPN database
   ## Special thanks: https://sysadmin.compxtreme.ro/how-to-install-a-openvpn-system-based-on-userpassword-authentication-with-mysql-day-control-libpam-mysql/
-  mysql -u $USER -p$PASS $DB < $DIR/mariadbconf/openvpn.sql
+  mysql -u $USER -p$PASS $DB < $DIR/mariadbconf/sdp.sql
   if [ "$NEWDATABASE" == "true" ]; then
     mysql -u $USER -p$PASS $DB < $DIR/mariadbconf/sampledata.sql
   fi

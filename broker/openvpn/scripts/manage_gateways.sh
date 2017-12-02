@@ -40,7 +40,7 @@ if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from gatew
     echo ""
     selectGwIP
 fi
-echo "fconfig-push $GATEWAY_IP $GATEWAY_GATEWAY" > $OPENVPN_CLIENT_FOLDER/$CN 
+echo "ifconfig-push $GATEWAY_IP $GATEWAY_GATEWAY" > $OPENVPN_CLIENT_FOLDER/$CN 
 }
 
 function createSshKey {
