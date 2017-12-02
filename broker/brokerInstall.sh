@@ -394,7 +394,12 @@ function configureOpenvpn {
   sed -i "s@dh\ .*@dh\ $OPENVPN_KEYS\/dh2048\.pem@" $OPENVPN_DIR/gateway_vpn.conf
   sed -i "s@tls\-auth\ .*@tls\-auth\ $OPENVPN_KEYS\/ta\.key\ 0@" $OPENVPN_DIR/gateway_vpn.conf
   sed -i "s@server\ .*@server\ $GATEWAY_NETWORK\ $GATEWAY_NETMASK@" $OPENVPN_DIR/gateway_vpn.conf
+  sed -i "s@client\-config\-dir\ .*@client\-config\-dir\ $OPENVPN_CLIENT_FOLDER@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@status\ .*@status\ $OPENVPN_DIR\/gateway\_vpn\-status\.log@" $OPENVPN_DIR/gateway_vpn.conf
+  ## Add entry for broker into the OpenVPN database
+  if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from gateway where gateway_ip='$GATEWAY_GATEWAY'"` -lt 1 ]; then
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into gateway (gateway_name,gateway_ip,gateway_proxy_port,gateway_start_date,gateway_end_date) values ('$BROKER_HOSTNAME', '$GATEWAY_GATEWAY','$SQUID_PORT',now(), now() + INTERVAL 50 year)"
+  fi
   ## Configure Services to start
   service openvpn stop
   systemctl disable openvpn
@@ -433,7 +438,7 @@ function installGatewayManagement {
   cp $DIR/openvpn/gateway-configs/gatewaybase.conf $OPENVPN_DIR/gateway-configs/
   cp $DIR/openvpn/scripts/manage_gateways.sh $OPENVPN_DIR/scripts/
   chmod +x $OPENVPN_DIR/scripts/manage_gateways.sh
-  sed -i "s/verify\-x509\-name\ .*/verify\-x509\-name\ \'C\=$KEY_COUNTRY\,\ ST\=$KEY_PROVINCE\,\ L\=KEY_CITY\,\ O\=$KEY_ORG\,\ OU\=$KEY_OU\,\ CN\=$BROKER_HOSTNAME\,\ name\=$KEY_NAME\,\ emailAddress\=$KEY_EMAIL'/" $GATEWAY_BASE_CONFIG
+  sed -i "s/verify\-x509\-name\ .*/verify\-x509\-name\ \'C\=$KEY_COUNTRY\,\ ST\=$KEY_PROVINCE\,\ L\=$KEY_CITY\,\ O\=$KEY_ORG\,\ OU\=$KEY_OU\,\ CN\=$BROKER_HOSTNAME\,\ name\=$KEY_NAME\,\ emailAddress\=$KEY_EMAIL'/" $GATEWAY_BASE_CONFIG
   sed -i "s/remote\ .*/remote\ $PRIMARY_IP\ $GATEWAY_VPN_PORT/" $GATEWAY_BASE_CONFIG
 }
 

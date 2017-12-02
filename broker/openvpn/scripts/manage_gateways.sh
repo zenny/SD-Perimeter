@@ -28,6 +28,10 @@ if [ -z "$CN" ]
 	exit
 fi
 
+SDP_MANAGE_HOME=/home/sdpmanagement
+FWKNOP_DIR=/etc/fwknop
+FWKNOP_KEYS=$FWKNOP_DIR/fwknop_keys.conf
+#FWKNOP_KEYS=$SDP_MANAGE_HOME/${CN}_fwknop_keys.conf
 
 function selectGwIP {
 read -p "Choose an IP address for your gateway from the $GATEWAY_NET network: " GATEWAY_IP
@@ -35,14 +39,33 @@ if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from gatew
     echo "IP Already in use. You must select a different IP"
     echo ""
     selectGwIP
-fi 
+fi
+echo "fconfig-push $GATEWAY_IP $GATEWAY_GATEWAY" > $OPENVPN_CLIENT_FOLDER/$CN 
+}
+
+function createSshKey {
+    ssh-keygen -b 2048 -t rsa -f $SDP_MANAGE_HOME/${CN}_rsa -q -N ""
+    cat $SDP_MANAGE_HOME/${CN}_rsa.pub >> $SDP_MANAGE_HOME/.ssh/authorized_keys
+    chown sdpmanagement:sdpmanagement -R $SDP_MANAGE_HOME
+}
+
+function deleteSshKey {
+    sed -i '/`cat $SDP_MANAGE_HOME/${CN}_rsa.pub`/d' $SDP_MANAGE_HOME/.ssh/authorized_keys
+    rm -f $SDP_MANAGE_HOME/${CN}_rsa.pub
+}
+
+function createFwknopKeys {
+    fwknop --key-gen --key-gen-file $FWKNOP_KEYS
+}
+
+function deleteFwknopKeys {
+    rm -f $FWKNOP_KEYS
 }
 
 function createCert {
 	# Enter the easy-rsa directory and establish the default variables
 	cd $OPENVPN_RSA_DIR
 	source ./vars > /dev/null
-	
 	# Copied from build-key script (to ensure it works!)
 	export EASY_RSA="${EASY_RSA:-.}"
 	"$EASY_RSA/pkitool" --batch $CN
@@ -67,8 +90,6 @@ function createOvpn {
 }
 
 function writeGatewayConfig {
-  FWKNOP_DIR=/etc/fwknop
-  FWKNOP_KEYS=$FWKNOP_DIR/fwknop_keys.conf
   FWKNOP_HMAC=`grep HMAC_KEY_BASE64 $FWKNOP_KEYS | awk '{print $2}'`
   FWKNOP_RIJNDAEL=`grep KEY_BASE64 $FWKNOP_KEYS | grep -v HMAC | awk '{print $2}'`
   GW_CONFIG=${GATEWAY_OUTPUT_DIR}/${CN}_gw_config.sh
@@ -169,23 +190,42 @@ function revokeCert {
 }
 
 function showSetupInfo {
-  echo ""
+  clear
   echo "The remaining configuration must be completed on your Gateway."
   echo ""
+  echo "The SSH Port will be openv while setting up the gateway. After finishing, the SSH port will be closed again automatically."
+  ufw allow 22/tcp
+  echo
+  echo
+  echo
   echo "Enter the following command on your Gateway to create the private key:"
   echo ""
-  echo "echo \"`cat /home/sdpmanagement/.ssh/id_rsa`\" > /home/sdpmanagement/id_rsa"
+  echo "echo \"`cat /home/sdpmanagement/${CN}_rsa`\" > /home/sdpmanagement/id_rsa"
   echo ""
+  echo
+  echo 
+  read -p "Press 'Enter' when completed and proceed to next step..."
+  clear
+  echo "On the gateway, you must execute the 'gatewayInstall.sh' setup script"
+  echo
+  echo
+  echo
   echo "Enter this Broker IP Address when prompted:"
   echo $PRIMARY_IP
   echo ""
   echo "Enter this Gateway Hostname when prompted:"
   echo "$CN"
+  echo 
+  echo
+  echo
+  read -p "Press 'Enter' when gateway setup is completed..."
+  echo "SSH port is now being closed."
+  #ufw delete allow 22/tcp
 }
 
 
 function disableDbEntries {
-    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "update gateway set gateway_enable='no' where gateway_name='$CN'"
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "update gateway set gateway_enable='no',gateway_ip=null where gateway_name='$CN'"
 }
 
 function enableDbEntries {
@@ -201,7 +241,7 @@ function createDbEntries {
 if [ -f $OPENVPN_KEYS/$CN.crt ]
         then echo "Certificate with the CN $CN alread exists!"
                 PS3='Choose an Option to Continue: '
-                options=("Rebuild Configuration" "Revoke cert and rebuild Configuration" "Disable Gateway" "Cancel")
+                options=("Rebuild Configuration" "Revoke cert and rebuild Configuration" "Disable Gateway" "Delete Gateway" "Cancel")
                 select opt in "${options[@]}"
                 do
                     case $opt in
@@ -227,6 +267,13 @@ if [ -f $OPENVPN_KEYS/$CN.crt ]
                             disableDbEntries
                             break
                             ;;
+                        "Delete Gateway")
+                            echo "Deleting Gateway"
+                            revokeCert
+                            deleteSshKey
+                            disableDbEntries
+                            break
+                            ;;
                         "Cancel")
                             exit
                             ;;
@@ -236,6 +283,7 @@ if [ -f $OPENVPN_KEYS/$CN.crt ]
         exit
 else
         selectGwIP
+        createSshKey
         createCert
         createOvpn
         writeGatewayConfig
