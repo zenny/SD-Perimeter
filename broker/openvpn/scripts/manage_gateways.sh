@@ -9,14 +9,7 @@
 
 # Set where we're working from
 ## These will be installation specific
-OPENVPN_RSA_DIR=/etc/openvpn/easy-rsa
-OPENVPN_CLIENT_FOLDER=/etc/openvpn/client
-GATEWAY_BASE_CONFIG=/etc/openvpn/gateway-configs/gatewaybase.conf
-GATEWAY_OUTPUT_DIR=/home/sdpmanagement
 DB_CONFIG=/etc/openvpn/scripts/config.sh
-
-## These will most likely not need editing
-OPENVPN_KEYS=$OPENVPN_RSA_DIR/keys
 OPENVPN_GATEWAY_BASE=$OPENVPN_CLIENT_FOLDER/sdp-gateway-base
 
 . $DB_CONFIG
@@ -34,6 +27,16 @@ if [ -z "$CN" ]
 	then echo "You must provide a CN."
 	exit
 fi
+
+
+function selectGwIP {
+read -p "Choose an IP address for your gateway from the $GATEWAY_NET network: " GATEWAY_IP
+if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from gateway where gateway_ip = '$GATEWAY_IP'"` -gt 0 ]; then
+    echo "IP Already in use. You must select a different IP"
+    echo ""
+    selectGwIP
+fi 
+}
 
 function createCert {
 	# Enter the easy-rsa directory and establish the default variables
@@ -61,6 +64,57 @@ function createOvpn {
 	
 	# Celebrate!
 	echo "Config created at ${GATEWAY_OUTPUT_DIR}/$CN.ovpn"
+}
+
+function writeGatewayConfig {
+  FWKNOP_DIR=/etc/fwknop
+  FWKNOP_KEYS=$FWKNOP_DIR/fwknop_keys.conf
+  FWKNOP_HMAC=`grep HMAC_KEY_BASE64 $FWKNOP_KEYS | awk '{print $2}'`
+  FWKNOP_RIJNDAEL=`grep KEY_BASE64 $FWKNOP_KEYS | grep -v HMAC | awk '{print $2}'`
+  GW_CONFIG=${GATEWAY_OUTPUT_DIR}/${CN}_gw_config.sh
+  echo "Writing gateway config file"
+  echo "#!/bin/bash" > $GW_CONFIG
+  echo "" >> $GW_CONFIG
+  echo "####Directories" >> $GW_CONFIG
+  echo "OPENVPN_DIR=/etc/openvpn" >> $GW_CONFIG
+  echo "" >> $GW_CONFIG
+  echo "####Easy-RSA variables" >> $GW_CONFIG
+  echo "KEY_EMAIL=$KEY_EMAIL" >> $GW_CONFIG
+  echo "KEY_NAME=$KEY_NAME" >> $GW_CONFIG
+  echo "KEY_COUNTRY=$KEY_COUNTRY" >> $GW_CONFIG
+  echo "KEY_PROVINCE=$KEY_PROVINCE" >> $GW_CONFIG
+  echo "KEY_CITY=$KEY_CITY" >> $GW_CONFIG
+  echo "KEY_ORG=$KEY_ORG" >> $GW_CONFIG
+  echo "KEY_OU=$KEY_OU" >> $GW_CONFIG
+  echo "" >> $GW_CONFIG
+  echo "####Database Setting" >> $GW_CONFIG
+  echo "HOST=$GATEWAY_GATEWAY" >> $GW_CONFIG
+  echo "PORT=$PORT" >> $GW_CONFIG
+  echo "USER=$USER" >> $GW_CONFIG
+  echo "PASS=$PASS" >> $GW_CONFIG
+  echo "DB=$DB" >> $GW_CONFIG
+  echo "" >> $GW_CONFIG
+  echo "####Network Setting" >> $GW_CONFIG
+  echo "BROKER_HOSTNAME=$BROKER_HOSTNAME" >> $GW_CONFIG
+  echo "PRIMARY_IP=$PRIMARY_IP" >> $GW_CONFIG
+  echo "CLIENT_NET=$CLIENT_NET" >> $GW_CONFIG
+  echo "CLIENT_NETWORK=$CLIENT_NETWORK" >> $GW_CONFIG
+  echo "CLIENT_NETMASK=$CLIENT_NETMASK" >> $GW_CONFIG
+  echo "GATEWAY_IP=$GATEWAY_IP" >> $GW_CONFIG
+  echo "GATEWAY_NET=$GATEWAY_NET" >> $GW_CONFIG
+  echo "GATEWAY_GATEWAY=$GATEWAY_GATEWAY" >> $GW_CONFIG
+  echo "GATEWAY_BROADCAST=$GATEWAY_BROADCAST" >> $GW_CONFIG
+  echo "GATEWAY_NETWORK=$GATEWAY_NETWORK" >> $GW_CONFIG
+  echo "GATEWAY_NETMASK=$GATEWAY_NETMASK" >> $GW_CONFIG
+  echo "CLIENT_VPN_PORT=$CLIENT_VPN_PORT" >> $GW_CONFIG
+  echo "GATEWAY_VPN_PORT=$GATEWAY_VPN_PORT" >> $GW_CONFIG
+  echo "SQUID_PORT=$SQUID_PORT" >> $GW_CONFIG
+  echo "REDSOCKS_PORT=$REDSOCKS_PORT" >> $GW_CONFIG
+  echo "NGINX_PORT=$NGINX_PORT" >> $GW_CONFIG
+  echo "" >> $GW_CONFIG
+  echo "####FWKNOP Keys" >> $GW_CONFIG
+  echo "FWKNOP_HMAC=\"$FWKNOP_HMAC\"" >> $GW_CONFIG
+  echo "FWKNOP_RIJNDAEL=\"$FWKNOP_RIJNDAEL\"" >> $GW_CONFIG
 }
 
 function revokeCert {
@@ -129,6 +183,20 @@ function showSetupInfo {
   echo "$CN"
 }
 
+
+function disableDbEntries {
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "update gateway set gateway_enable='no' where gateway_name='$CN'"
+}
+
+function enableDbEntries {
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "update gateway set gateway_enable='yes' where gateway_name='$CN'"
+}
+
+function createDbEntries {
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into gateway (gateway_name,gateway_ip,gateway_proxy_port,gateway_start_date,gateway_end_date) values ('$CN', '$GATEWAY_IP','$SQUID_PORT',now(), now() + INTERVAL 50 year)"
+    enableDbEntries
+}
+
 # Check the CN doesn't already exist
 if [ -f $OPENVPN_KEYS/$CN.crt ]
         then echo "Certificate with the CN $CN alread exists!"
@@ -140,6 +208,8 @@ if [ -f $OPENVPN_KEYS/$CN.crt ]
                         "Rebuild Configuration")
                             echo "Rebuilding Configuration now"
 		            createOvpn
+                            writeGatewayConfig
+                            enableDbEntries
 		            break
                             ;;
                         "Revoke cert and rebuild Configuration")
@@ -147,11 +217,14 @@ if [ -f $OPENVPN_KEYS/$CN.crt ]
 		            revokeCert
 		            createCert
 		            createOvpn
+                            writeGatewayConfig
+                            enableDbEntries
 		            break
                             ;;
                         "Disable Gateway")
                             echo "Disabling Gateway"
                             revokeCert
+                            disableDbEntries
                             break
                             ;;
                         "Cancel")
@@ -162,7 +235,10 @@ if [ -f $OPENVPN_KEYS/$CN.crt ]
                 done
         exit
 else
+        selectGwIP
         createCert
         createOvpn
+        writeGatewayConfig
+        createDbEntries
         showSetupInfo
 fi

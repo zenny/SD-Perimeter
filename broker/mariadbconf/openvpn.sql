@@ -68,3 +68,32 @@ CREATE VIEW IF NOT EXISTS `squid_group_helper` AS
     where `u`.`user_id` = `ug`.`user_id` 
     and `g`.`ugroup_id` = `ug`.`ugroup_id`;
 
+CREATE TABLE IF NOT EXISTS `gateway` (
+    `gateway_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `gateway_name` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `gateway_ip` varchar(15) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `gateway_proxy_port` varchar(5) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `gateway_start_date` date NOT NULL,
+    `gateway_end_date` date NOT NULL,
+    `gateway_online` enum('yes','no') NOT NULL DEFAULT 'no',
+    `gateway_enable` enum('yes','no') NOT NULL DEFAULT 'yes',
+PRIMARY KEY (`gateway_id`),
+CONSTRAINT UNIQUE (`gateway_name`),
+CONSTRAINT UNIQUE (`gateway_ip`)
+);
+
+CREATE TABLE IF NOT EXISTS `gateway_log` (
+    `log_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `gateway_id` varchar(32) COLLATE utf8_unicode_ci NOT NULL,
+    `log_trusted_ip` varchar(32) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_trusted_port` varchar(16) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_remote_ip` varchar(32) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_remote_port` varchar(16) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_start_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `log_end_time` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
+    `log_received` float NOT NULL DEFAULT '0',
+    `log_send` float NOT NULL DEFAULT '0',
+PRIMARY KEY (`log_id`),
+KEY `gateway_id` (`gateway_id`)
+);
+

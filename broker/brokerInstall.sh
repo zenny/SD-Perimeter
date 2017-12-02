@@ -105,12 +105,12 @@ function infoGather {
     echo ""
   fi
   if [ -z ${CLIENT_VPN_PORT+x} ]; then
-    read -p "Choose the VPN port for the client VPN [Default: 1195]: " CLIENT_VPN_PORT
+    #read -p "Choose the VPN port for the client VPN [Default: 1195]: " CLIENT_VPN_PORT
     CLIENT_VPN_PORT=${CLIENT_VPN_PORT:-1195}
     echo ""
   fi
   if [ -z ${GATEWAY_VPN_PORT+x} ]; then
-    read -p "Choose the VPN port for the gateway VPN [Default: 1194]: " GATEWAY_VPN_PORT
+    #read -p "Choose the VPN port for the gateway VPN [Default: 1194]: " GATEWAY_VPN_PORT
     GATEWAY_VPN_PORT=${GATEWAY_VPN_PORT:-1194}
     echo ""
   fi
@@ -141,8 +141,8 @@ function writeConfig {
   echo "BASE_CONFIG=\$OPENVPN_DIR/client-configs/base.conf" >> $DB_CONFIG
   echo "BASE_WIN_FILES=\$OPENVPN_DIR/client-configs/winfiles" >> $DB_CONFIG
   echo "OPENVPN_CLIENT_BASE=\$OPENVPN_CLIENT_FOLDER/sdp-base" >> $DB_CONFIG
-  echo "GATEWAY_BASE_CONFIG=$GATEWAY_BASE_CONFIG" >> $DB_CONFIG
-  echo "GATEWAY_OUTPUT_DIR=$GATEWAY_OUTPUT_DIR" >> $DB_CONFIG
+  echo "GATEWAY_BASE_CONFIG=\$OPENVPN_DIR/gateway-configs/gatewaybase.conf" >> $DB_CONFIG
+  echo "GATEWAY_OUTPUT_DIR=/home/sdpmanagement" >> $DB_CONFIG
   echo "" >> $DB_CONFIG
   echo "####Easy-RSA variables" >> $DB_CONFIG
   echo "KEY_EMAIL=$KEY_EMAIL" >> $DB_CONFIG
@@ -357,6 +357,10 @@ function configureOpenvpn {
   cp $DIR/openvpn/scripts/down.sh $OPENVPN_DIR/scripts/
   cp $DIR/openvpn/scripts/connect.sh $OPENVPN_DIR/scripts/
   cp $DIR/openvpn/scripts/disconnect.sh $OPENVPN_DIR/scripts/
+  cp $DIR/openvpn/scripts/gw_up.sh $OPENVPN_DIR/scripts/
+  cp $DIR/openvpn/scripts/gw_down.sh $OPENVPN_DIR/scripts/
+  cp $DIR/openvpn/scripts/gw_connect.sh $OPENVPN_DIR/scripts/
+  cp $DIR/openvpn/scripts/gw_disconnect.sh $OPENVPN_DIR/scripts/
   chmod +x $OPENVPN_DIR/scripts/*.sh
   mkdir -p $OPENVPN_DIR/client
   touch $OPENVPN_DIR/client_vpn-status.log
@@ -407,8 +411,8 @@ function installClientManagement {
     mkdir $OUTPUT_DIR
     mkdir $BASE_WIN_FILES
   fi
-  cp $DIR/openvpn/client-configs/base.conf $BASE_CONFIG
-  cp $DIR/openvpn/client-configs/winfiles/* $BASE_WIN_FILES
+  cp $DIR/openvpn/client-configs/base.conf $OPENVPN_DIR/client-configs/
+  cp $DIR/openvpn/client-configs/winfiles/* $BASE_WIN_FILES/
   cp $DIR/openvpn/scripts/manage_clients.sh $OPENVPN_DIR/scripts/
   chmod +x $OPENVPN_DIR/scripts/manage_clients.sh
   sed -i "s/verify\-x509\-name\ .*/verify\-x509\-name\ \'C\=$KEY_COUNTRY\,\ ST\=$KEY_PROVINCE\,\ L\=KEY_CITY\,\ O\=$KEY_ORG\,\ OU\=$KEY_OU\,\ CN\=$BROKER_HOSTNAME\,\ name\=$KEY_NAME\,\ emailAddress\=$KEY_EMAIL'/" $BASE_CONFIG
@@ -514,56 +518,6 @@ function createManagementUser {
   fi
 }
 
-function writeGatewayConfig {
-  FWKNOP_DIR=/etc/fwknop
-  FWKNOP_KEYS=$FWKNOP_DIR/fwknop_keys.conf
-  FWKNOP_HMAC=`grep HMAC_KEY_BASE64 $FWKNOP_KEYS | awk '{print $2}'`
-  FWKNOP_RIJNDAEL=`grep KEY_BASE64 $FWKNOP_KEYS | grep -v HMAC | awk '{print $2}'`
-  GW_CONFIG=$GATEWAY_OUTPUT_DIR/gw_config.sh
-  echo "Writing gateway config file"
-  echo "#!/bin/bash" > $GW_CONFIG
-  echo "" >> $GW_CONFIG
-  echo "####Directories" >> $GW_CONFIG
-  echo "OPENVPN_DIR=/etc/openvpn" >> $GW_CONFIG
-  echo "" >> $GW_CONFIG
-  echo "####Easy-RSA variables" >> $GW_CONFIG
-  echo "KEY_EMAIL=$KEY_EMAIL" >> $GW_CONFIG
-  echo "KEY_NAME=$KEY_NAME" >> $GW_CONFIG
-  echo "KEY_COUNTRY=$KEY_COUNTRY" >> $GW_CONFIG
-  echo "KEY_PROVINCE=$KEY_PROVINCE" >> $GW_CONFIG
-  echo "KEY_CITY=$KEY_CITY" >> $GW_CONFIG
-  echo "KEY_ORG=$KEY_ORG" >> $GW_CONFIG
-  echo "KEY_OU=$KEY_OU" >> $GW_CONFIG
-  echo "" >> $GW_CONFIG
-  echo "####Database Setting" >> $GW_CONFIG
-  echo "HOST=$GATEWAY_GATEWAY" >> $GW_CONFIG
-  echo "PORT=$PORT" >> $GW_CONFIG
-  echo "USER=$USER" >> $GW_CONFIG
-  echo "PASS=$PASS" >> $GW_CONFIG
-  echo "DB=$DB" >> $GW_CONFIG
-  echo "" >> $GW_CONFIG
-  echo "####Network Setting" >> $GW_CONFIG
-  echo "BROKER_HOSTNAME=$BROKER_HOSTNAME" >> $GW_CONFIG
-  echo "PRIMARY_IP=$PRIMARY_IP" >> $GW_CONFIG
-  echo "CLIENT_NET=$CLIENT_NET" >> $GW_CONFIG
-  echo "CLIENT_NETWORK=$CLIENT_NETWORK" >> $GW_CONFIG
-  echo "CLIENT_NETMASK=$CLIENT_NETMASK" >> $GW_CONFIG
-  echo "GATEWAY_NET=$GATEWAY_NET" >> $GW_CONFIG
-  echo "GATEWAY_GATEWAY=$GATEWAY_GATEWAY" >> $GW_CONFIG
-  echo "GATEWAY_BROADCAST=$GATEWAY_BROADCAST" >> $GW_CONFIG
-  echo "GATEWAY_NETWORK=$GATEWAY_NETWORK" >> $GW_CONFIG
-  echo "GATEWAY_NETMASK=$GATEWAY_NETMASK" >> $GW_CONFIG
-  echo "CLIENT_VPN_PORT=$CLIENT_VPN_PORT" >> $GW_CONFIG
-  echo "GATEWAY_VPN_PORT=$GATEWAY_VPN_PORT" >> $GW_CONFIG
-  echo "SQUID_PORT=$SQUID_PORT" >> $GW_CONFIG
-  echo "REDSOCKS_PORT=$REDSOCKS_PORT" >> $GW_CONFIG
-  echo "NGINX_PORT=$NGINX_PORT" >> $GW_CONFIG
-  echo "" >> $GW_CONFIG
-  echo "####FWKNOP Keys" >> $GW_CONFIG
-  echo "FWKNOP_HMAC=\"$FWKNOP_HMAC\"" >> $GW_CONFIG
-  echo "FWKNOP_RIJNDAEL=\"$FWKNOP_RIJNDAEL\"" >> $GW_CONFIG
-}
-
 ### Execute order
 infoGather
 installPackages
@@ -579,7 +533,6 @@ configureSquid
 addBasePac
 configureRedsocks
 createManagementUser
-writeGatewayConfig
 
 echo ""
 echo "Broker Configuration is now complete!!"
