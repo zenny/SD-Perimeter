@@ -69,6 +69,7 @@ function configureOpenvpn {
     echo "$OVPN_SERVICE Definition already updated"
   fi
   systemctl daemon-reload
+  service openvpn@gateway stop
   service openvpn@gateway start
   ##Create OpvnVPN service check
   OVPN_CHECK=$OPENVPN_DIR/scripts/openvpn_check.sh
