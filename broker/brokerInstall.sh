@@ -210,6 +210,10 @@ function configureDatabase {
     mysql -u root -p$rootDBpass -e "DROP DATABASE IF EXISTS test"
     mysql -u root -p$rootDBpass -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\_%'"
     mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
+    if [ ! -e "/etc/mysql/my.cnf.orig" ]; then
+      mv /etc/mysql/my.cnf /etc/mysql/my.cnf.orig
+      cp $DIR/mariadbconf/my.cnf /etc/mysql/my.cnf
+    fi
   fi
   if [ ! -e "/etc/mysql/mariadb.conf.d/50-server.cnf" ]; then
     ## Put small memory server configs in place
@@ -262,6 +266,7 @@ function configureFirewall {
   ##UFW rules
   ufw allow from $CLIENT_NET to any port $NGINX_PORT proto tcp
   ufw allow from $CLIENT_NET to any port $SQUID_PORT proto tcp
+  ufw allow from $GATEWAY_NET to any port 3306 proto tcp
   ##These will be removed with the lockdown script once everything has been confirmed
   ufw allow 22/tcp
   ufw allow ${CLIENT_VPN_PORT}/udp
@@ -474,6 +479,9 @@ function configureSquid {
   fi
   if [ ! -e ${SQUIDCONF}.d/never_direct.conf ]; then
     touch ${SQUIDCONF}.d/never_direct.conf
+  fi
+  if [ ! -e ${SQUIDCONF}.d/cache_peer_deny.conf ]; then
+    touch ${SQUIDCONF}.d/cache_peer_deny.conf
   fi
   if [ ! -e ${SQUIDCONF}.d/http_access.conf ]; then
     touch  ${SQUIDCONF}.d/http_access.conf

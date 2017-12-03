@@ -180,3 +180,53 @@ CONSTRAINT `fk_srg_group_id` FOREIGN KEY (`ugroup_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE
 );
+
+CREATE VIEW IF NOT EXISTS `resource_gateway_helper` AS
+    select `r`.`resource_name`,
+        `g`.`gateway_name`,
+        `g`.`gateway_ip`
+    from `sdp_resource` `r`,
+        `gateway` `g`,
+        `sdp_gateway_resource` `sgr`
+    where `r`.`resource_id` = `sgr`.`resource_id`
+    and `g`.`gateway_id` = `sgr`.`gateway_id`;
+
+CREATE VIEW IF NOT EXISTS `resource_rules_helper` AS
+    select `r`.`resource_name`,
+        `r`.`resource_domain`,
+        `r`.`resource_type`,
+        `p`.`port_name`,
+        `p`.`port_number`,
+        `g`.`ugroup_name`
+    from `sdp_resource` `r`,
+        `sdp_port` `p`,
+        `ugroup` `g`,
+        `sdp_resource_group` `srg`,
+        `sdp_resource_port` `srp`
+    where `r`.`resource_id` = `srg`.`resource_id`
+    and `r`.`resource_id` = `srp`.`resource_id`
+    and `p`.`port_id` = `srp`.`port_id`
+    and `g`.`ugroup_id` = `srg`.`ugroup_id`;
+
+CREATE VIEW IF NOT EXISTS `squid_rules_helper` AS
+    select `r`.`resource_name`,
+        `r`.`resource_domain`,
+        `r`.`resource_type`,
+        `p`.`port_name`,
+        `p`.`port_number`,
+        `gr`.`ugroup_name`,
+        `g`.`gateway_name`,
+        `g`.`gateway_ip`
+    from `sdp_resource` `r`,
+        `sdp_port` `p`,
+        `ugroup` `gr`,
+        `sdp_resource_group` `srg`,
+        `sdp_resource_port` `srp`,
+        `gateway` `g`,
+        `sdp_gateway_resource` `sgr`
+    where `r`.`resource_id` = `srg`.`resource_id`
+    and `r`.`resource_id` = `srp`.`resource_id`
+    and `p`.`port_id` = `srp`.`port_id`
+    and `gr`.`ugroup_id` = `srg`.`ugroup_id`
+    and `r`.`resource_id` = `sgr`.`resource_id`
+    and `g`.`gateway_id` = `sgr`.`gateway_id`;

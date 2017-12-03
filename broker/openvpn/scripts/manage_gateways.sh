@@ -237,6 +237,22 @@ function createDbEntries {
     enableDbEntries
 }
 
+function createSquidPeer {
+    SQUID_CONF="/etc/squid/squid.conf.d"
+    if [ `grep -c $GATEWAY_IP $SQUID_CONF/cache_peers.conf` -lt 1 ]; then
+      echo "cache_peer $GATEWAY_IP parent $SQUID_PORT 0 no-netdb-exchange proxy-only" >> $SQUID_CONF/cache_peers.conf
+      echo "cache_peer_access $GATEWAY_IP deny all" >> $SQUID_CONF/cache_peer_deny.conf
+      service squid reload
+    fi
+}
+
+function removeSquidPeer {
+   SQUID_CONF="/etc/squid/squid.conf.d"
+   sed -i '/$GATEWAY_IP/d' $SQUID_CONF/cache_peers.conf
+   sed -i '/$GATEWAY_IP/d' $SQUID_CONF/cache_peer_deny.conf
+   service squid reload
+}
+
 # Check the CN doesn't already exist
 if [ -f $OPENVPN_KEYS/$CN.crt ]
         then echo "Certificate with the CN $CN alread exists!"
@@ -250,6 +266,7 @@ if [ -f $OPENVPN_KEYS/$CN.crt ]
 		            createOvpn
                             writeGatewayConfig
                             enableDbEntries
+                            createSquidPeer
 		            break
                             ;;
                         "Revoke cert and rebuild Configuration")
@@ -259,12 +276,14 @@ if [ -f $OPENVPN_KEYS/$CN.crt ]
 		            createOvpn
                             writeGatewayConfig
                             enableDbEntries
+                            createSquidPeer
 		            break
                             ;;
                         "Disable Gateway")
                             echo "Disabling Gateway"
                             revokeCert
                             disableDbEntries
+                            removeSquidPeer
                             break
                             ;;
                         "Delete Gateway")
@@ -272,6 +291,7 @@ if [ -f $OPENVPN_KEYS/$CN.crt ]
                             revokeCert
                             deleteSshKey
                             disableDbEntries
+                            removeSquidPeer
                             break
                             ;;
                         "Cancel")
@@ -288,5 +308,6 @@ else
         createOvpn
         writeGatewayConfig
         createDbEntries
+        createSquidPeer
         showSetupInfo
 fi
