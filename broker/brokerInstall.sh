@@ -195,7 +195,7 @@ function installPackages {
   add-apt-repository 'deb [arch=amd64,i386,ppc64el] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu xenial main'
   export DEBIAN_FRONTEND="noninteractive"
   apt-get update
-  apt install -y mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix
+  apt install -y mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix jq
 }
 
 ####Configure Mariadb Installation

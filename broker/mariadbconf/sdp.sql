@@ -48,6 +48,16 @@ CREATE TABLE IF NOT EXISTS `log` (
     `log_end_time` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
     `log_received` float NOT NULL DEFAULT '0',
     `log_send` float NOT NULL DEFAULT '0',
+    `log_country_code` varchar(2) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_country_name` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_region` varchar(4) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_region_name` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_city` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_zip` varchar(8) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_timezone` varchar(32) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_lat` varchar(32) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_long` varchar(32) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_os` varchar(32) COLLATE utf8_unicode_ci DEFAULT NULL,
 PRIMARY KEY (`log_id`),
 KEY `user_id` (`user_id`)
 );
@@ -62,7 +72,7 @@ CREATE VIEW IF NOT EXISTS `squid_user_helper` AS
     and `u`.`user_mail`=`l`.`user_id`;
 
 CREATE VIEW IF NOT EXISTS `squid_group_helper` AS 
-    select `u`.`user_mail` as `user_id`, 
+    select `u`.`user_mail` as `user_id`,
         `g`.`ugroup_name` as `ugroup_id`
     from `user` `u`, `ugroup` `g`, `user_group` `ug`
     where `u`.`user_id` = `ug`.`user_id` 
@@ -93,6 +103,15 @@ CREATE TABLE IF NOT EXISTS `gateway_log` (
     `log_end_time` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
     `log_received` float NOT NULL DEFAULT '0',
     `log_send` float NOT NULL DEFAULT '0',
+    `log_country_code` varchar(2) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_country_name` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_region` varchar(4) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_region_name` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_city` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_zip` varchar(8) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_timezone` varchar(32) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_lat` varchar(32) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `log_long` varchar(32) COLLATE utf8_unicode_ci DEFAULT NULL,
 PRIMARY KEY (`log_id`),
 KEY `gateway_id` (`gateway_id`)
 );
