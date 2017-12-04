@@ -47,6 +47,16 @@ read -p "What is the DOMAIN or IP of your resource? " RESOURCE_DOMAIN
 function resourcePorts {
   echo
   read -p "Enter a new port for this resource? " newPort
+  if [ -z "$newPort" ]; then
+    echo
+    echo "You must choose at least one port!"
+    resourcePorts
+  fi
+  if [ "$newPort" -lt 1 ] || [ "$newPort" -gt 65535 ]; then
+    echo
+    echo "You must choose a valid port number! [1-65535] "
+    resourcePorts
+  fi
   RESOURCE_PORT+=("$newPort")
   read -r -p "Would you you like to add another port? [Y/n] " addPort
   case "$addPort" in
@@ -61,8 +71,8 @@ function resourcePorts {
 
 function resourceGroups {
   echo
-  read -p "Enter a new group for this resource? " newPort
-  RESOURCE_GROUP+=("$newPort")
+  read -p "Enter a new group for this resource? " newGroup
+  RESOURCE_GROUP+=("$newGroup")
   read -r -p "Would you you like to add another group? [Y/n] " addGroup
   case "$addGroup" in
     [yY][eE][sS]|[yY])
@@ -72,6 +82,9 @@ function resourceGroups {
         echo ""
         ;;
   esac
+  if [ `echo ${#RESOURCE_GROUP[@]}` -eq 0  ]; then
+    RESOURCE_GROUP+=("all_users")
+  fi
 }
 
 function insertDB {
@@ -81,7 +94,7 @@ function insertDB {
   ##Insert Groups
   for name in "${RESOURCE_GROUP[@]}"
   do
-    if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from ugroup where ugroup_name = '$name'"` -lt 1 ]; then
+    if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from ugroup where ugroup_name = '$name'"` -lt 1 ] && [ "$name" != "all_users" ]; then
       mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into ugroup (ugroup_name, ugroup_description) values ('$name','$name')"
     fi
     mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource_group (resource_id,ugroup_id) values ((select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'),(select ugroup_id from ugroup where ugroup_name='$name'))"
@@ -104,18 +117,16 @@ function writeSquid {
   sed -i "/${RESOURCE_NAME}_domain/d" $SQUID_DSTDOMAIN
   echo "acl ${RESOURCE_NAME}_domain dstdomain $RESOURCE_DOMAIN" >> $SQUID_DSTDOMAIN
 
+  sed -i "/${RESOURCE_NAME}_group/d" $SQUID_GROUP
   for name in "${RESOURCE_GROUP[@]}"
   do
-    if [ `grep -c $name $SQUID_GROUP` -lt 1 ]; then
-      echo "acl ${name}_group external sdp_user_groups $name" >> $SQUID_GROUP
-    fi
+    echo "acl ${RESOURCE_NAME}_group external sdp_user_groups $name" >> $SQUID_GROUP
   done
 
+  sed -i "/${RESOURCE_NAME}_port/d" $SQUID_PORTS
   for number in "${RESOURCE_PORT[@]}"
   do
-    if [ `grep -c $number $SQUID_PORTS` -lt 1 ]; then
-      echo "acl ${number}_port port $number" >> $SQUID_PORTS
-    fi
+    echo "acl ${RESOURCE_NAME}_port port $number" >> $SQUID_PORTS
   done
 
   sed -i "/${RESOURCE_NAME}_domain/d" $SQUID_CACHE_ACCESS
@@ -125,10 +136,7 @@ function writeSquid {
   fi
 
   sed -i "/${RESOURCE_NAME}_domain/d" $SQUID_ACCESS
-  for name in "${RESOURCE_GROUP[@]}"
-  do
-    echo "http_access allow ${RESOURCE_NAME}_domain ${name}_group" >> $SQUID_ACCESS
-  done
+  echo "http_access allow ${RESOURCE_NAME}_domain ${RESOURCE_NAME}_group" >> $SQUID_ACCESS
   echo "http_access deny ${RESOURCE_NAME}_domain" >> $SQUID_ACCESS
 
   service squid reload
