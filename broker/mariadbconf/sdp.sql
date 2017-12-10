@@ -62,7 +62,7 @@ PRIMARY KEY (`log_id`),
 KEY `user_id` (`user_id`)
 );
 
-CREATE VIEW IF NOT EXISTS `squid_user_helper` AS 
+CREATE OR REPLACE VIEW `squid_user_helper` AS 
     select `l`.`user_id` AS `user_id`,
         `l`.`log_remote_ip` AS `log_remote_ip`,
         substring_index(`l`.`user_id`,'@',-1) AS `domain`
@@ -71,7 +71,7 @@ CREATE VIEW IF NOT EXISTS `squid_user_helper` AS
     and `u`.`user_enable`='yes'
     and `u`.`user_mail`=`l`.`user_id`;
 
-CREATE VIEW IF NOT EXISTS `squid_group_helper` AS 
+CREATE OR REPLACE VIEW `squid_group_helper` AS 
     select `u`.`user_mail` as `user_id`,
         `g`.`ugroup_name` as `ugroup_id`
     from `user` `u`, `ugroup` `g`, `user_group` `ug`
@@ -181,7 +181,7 @@ CONSTRAINT `fk_srg_group_id` FOREIGN KEY (`ugroup_id`)
     ON UPDATE CASCADE
 );
 
-CREATE VIEW IF NOT EXISTS `resource_gateway_helper` AS
+CREATE OR REPLACE VIEW `resource_gateway_helper` AS
     select `r`.`resource_name`,
         `g`.`gateway_name`,
         `g`.`gateway_ip`
@@ -191,7 +191,7 @@ CREATE VIEW IF NOT EXISTS `resource_gateway_helper` AS
     where `r`.`resource_id` = `sgr`.`resource_id`
     and `g`.`gateway_id` = `sgr`.`gateway_id`;
 
-CREATE VIEW IF NOT EXISTS `resource_rules_helper` AS
+CREATE OR REPLACE VIEW `resource_rules_helper` AS
     select `r`.`resource_name`,
         `r`.`resource_domain`,
         `r`.`resource_type`,
@@ -208,13 +208,12 @@ CREATE VIEW IF NOT EXISTS `resource_rules_helper` AS
     and `p`.`port_id` = `srp`.`port_id`
     and `g`.`ugroup_id` = `srg`.`ugroup_id`;
 
-CREATE VIEW IF NOT EXISTS `squid_rules_helper` AS
+CREATE OR REPLACE VIEW `squid_rules_helper` AS
     select `r`.`resource_name`,
         `r`.`resource_domain`,
         `r`.`resource_type`,
-        `p`.`port_name`,
-        `p`.`port_number`,
-        `gr`.`ugroup_name`,
+        GROUP_CONCAT(DISTINCT `p`.`port_number` SEPARATOR ' ') ports,
+        GROUP_CONCAT(DISTINCT `gr`.`ugroup_name` SEPARATOR ' ') groups,
         `g`.`gateway_name`,
         `g`.`gateway_ip`
     from `sdp_resource` `r`,

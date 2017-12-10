@@ -26,8 +26,9 @@ function infoGather {
     mkdir -p $OUTPUT_DIR
     mkdir -p $BASE_WIN_FILES
     mkdir -p $OPENVPN_CLIENT_BASE
+  else
+    . $DB_CONFIG
   fi
-  . $DB_CONFIG
     
   ##Prompt user for information if not already gathered
   if [ -z ${KEY_EMAIL+x} ]; then
@@ -458,6 +459,9 @@ function configureSquid {
   sed -i "s@http\_port\ .*@http\_port\ $SQUID_PORT@" $SQUIDCONF 
   if [ ! -e ${SQUIDCONF}.d ]; then
     mkdir ${SQUIDCONF}.d
+  fi
+  if [! -e ${SQUIDCONF}.d/acl_sdp.conf ]; then
+    touch ${SQUIDCONF}.d/acl_sdp.conf
   fi
   if [ ! -e ${SQUIDCONF}.d/acl_sdp_clients.conf ]; then
     touch ${SQUIDCONF}.d/acl_sdp_clients.conf
