@@ -470,16 +470,6 @@ function configureSquid {
   if [ ! -e ${SQUIDCONF}.d/cache_peers.conf ]; then
     touch ${SQUIDCONF}.d/cache_peers.conf
   fi
-  if [ ! -e ${SQUIDCONF}.d/acl_ports.conf ]; then
-    touch ${SQUIDCONF}.d/acl_ports.conf
-  fi
-  echo "acl SSL_ports port 443" > ${SQUIDCONF}.d/acl_ports.conf
-  if [ ! -e ${SQUIDCONF}.d/acl_user_roles.conf ]; then
-    touch ${SQUIDCONF}.d/acl_user_roles.conf
-  fi
-  if [ ! -e ${SQUIDCONF}.d/acl_dstdomains.conf ]; then
-    touch ${SQUIDCONF}.d/acl_dstdomains.conf
-  fi
   if [ ! -e ${SQUIDCONF}.d/never_direct.conf ]; then
     touch ${SQUIDCONF}.d/never_direct.conf
   fi
