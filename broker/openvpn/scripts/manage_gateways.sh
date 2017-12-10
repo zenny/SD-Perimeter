@@ -193,13 +193,14 @@ function showSetupInfo {
   clear
   echo "The remaining configuration must be completed on your Gateway."
   echo ""
-  echo "The SSH Port will be openv while setting up the gateway. After finishing, the SSH port will be closed again automatically."
+  echo "The SSH Port will be open while setting up the gateway. After finishing, the SSH port will be closed again automatically."
   ufw allow 22/tcp
   echo
   echo
   echo
   echo "Enter the following command on your Gateway to create the private key:"
   echo ""
+  echo "mkdir -p /home/sdpmanagement"
   echo "echo \"`cat /home/sdpmanagement/${CN}_rsa`\" > /home/sdpmanagement/id_rsa"
   echo ""
   echo
@@ -208,6 +209,11 @@ function showSetupInfo {
   clear
   echo "On the gateway, you must execute the 'gatewayInstall.sh' setup script"
   echo
+  echo
+  echo
+  echo "apt-get install -y git"
+  echo "git clone https://github.com/foxxyben/SD-Perimeter.git"
+  echo "bash SD-Perimeter/gateway/gatewayInstall.sh"
   echo
   echo
   echo "Enter this Broker IP Address when prompted:"

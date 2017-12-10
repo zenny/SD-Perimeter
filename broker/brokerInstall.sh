@@ -270,7 +270,6 @@ function configureFirewall {
   ##These will be removed with the lockdown script once everything has been confirmed
   ufw allow 22/tcp
   ufw allow ${CLIENT_VPN_PORT}/udp
-  ufw allow ${GATEWAY_VPN_PORT}/udp
   ufw --force enable
 }
 

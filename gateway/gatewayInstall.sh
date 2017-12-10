@@ -54,6 +54,7 @@ function configureOpenvpn {
   echo "" >> $OVPN_FWKNOP
   echo "/bin/su - root -c \"/usr/bin/fwknop -A udp/$GATEWAY_VPN_PORT -f 10 --use-hmac -D $PRIMARY_IP -R --key-base64-hmac=$FWKNOP_HMAC --key-base64-rijndael=$FWKNOP_RIJNDAEL --wget-cmd /usr/bin/wget\"" >> $OVPN_FWKNOP
   echo "sleep 0.5" >> $OVPN_FWKNOP
+  chmod +x $OVPN_FWKNOP
   ##Stop and remove the old service
   service openvpn stop
   systemctl disable openvpn
@@ -73,11 +74,11 @@ function configureOpenvpn {
   service openvpn@gateway start
   ##Create OpvnVPN service check
   OVPN_CHECK=$OPENVPN_DIR/scripts/openvpn_check.sh
-  chmod +x $OVPN_CHECK
   echo "#!/bin/bash" > $OVPN_CHECK
   echo "" >> $OVPN_CHECK
   echo "ROUTER_IP=$GATEWAY_GATEWAY" >> $OVPN_CHECK
   echo "/bin/su - root -c \"( ! ping -c1 $GATEWAY_GATEWAY >/dev/null 2>&1 ) && service openvpn@gateway restart >/dev/null 2>&1\"" >> $OVPN_CHECK
+  chmod +x $OVPN_CHECK
   ##Add OpenVPN Check Script to Cronjob
   if [ `crontab -l | grep -c $OVPN_CHECK` -lt 1 ]; then
     crontab -l > tempcron
