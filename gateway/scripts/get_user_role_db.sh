@@ -5,7 +5,7 @@
 
 function getResult {
   AUTHUSER=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -se "select user_id from squid_user_helper where log_remote_ip='$srchost'"`
-  if [ "$group" -eq "all_users" ]; then
+  if [ "$group" == "all_users" ]; then
     RESULTS=1
   else
     RESULTS=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -se "select count(*) from squid_group_helper where user='$AUTHUSER' and ugroup='$group'"`
