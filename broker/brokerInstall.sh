@@ -196,7 +196,7 @@ function installPackages {
   add-apt-repository 'deb [arch=amd64,i386,ppc64el] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu xenial main'
   export DEBIAN_FRONTEND="noninteractive"
   apt-get update
-  apt install -y mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix jq
+  apt install -y mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix jq php-fpm php-mysql
 }
 
 ####Configure Mariadb Installation
@@ -390,7 +390,7 @@ function configureOpenvpn {
   sed -i "s@down\ .*@down\ $OPENVPN_DIR\/scripts\/down\.sh@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@client\-connect\ .*@client\-connect\ $OPENVPN_DIR\/scripts\/connect\.sh@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@client\-disconnect\ .*@client\-disconnect\ $OPENVPN_DIR\/scripts\/disconnect\.sh@" $OPENVPN_DIR/client_vpn.conf
-  sed -i "s@push\ \"dhcp-option\ PROXY\_AUTO\_CONFIG\_URL\ .*@push\ \"dhcp\-option\ PROXY\_AUTO\_CONFIG\_URL\ http\:\/\/$CLIENT_GATEWAY\/sdp\.pac\"@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@push\ \"dhcp-option\ PROXY\_AUTO\_CONFIG\_URL\ .*@push\ \"dhcp\-option\ PROXY\_AUTO\_CONFIG\_URL\ http\:\/\/$CLIENT_GATEWAY\/sdp\_pac\.php\"@" $OPENVPN_DIR/client_vpn.conf
   ## Set Gateway VPN Configs
   sed -i "s@port\ .*@port\ $GATEWAY_VPN_PORT@" $OPENVPN_DIR/gateway_vpn.conf
   sed -i "s@ca\ .*@ca\ $OPENVPN_KEYS\/ca\.crt@" $OPENVPN_DIR/gateway_vpn.conf
@@ -484,10 +484,29 @@ function configureSquid {
   service squid restart
 }
 
-function addBasePac {
-  PAC_FILE=/var/www/html/sdp.pac
-  cp $DIR/sdp.pac $PAC_FILE
-  sed -i "/return\ \"PROXY\ .*/return\ \"PROXY\ $CLIENT_GATEWAY\:$SQUID_PORT\"\;/" $PAC_FILE
+function configureNginx {
+  ## Put nginx configuration in place
+  NGINX_DIR=/etc/nginx
+  NGINX_ENABLED=$NGINX_DIR/sites-enabled
+  NGINX_AVAIL=$NGINX_DIR/sites-available
+  if [ -e $NGINX_ENABLED/default ]; then
+    rm -f /etc/nginx/sites-enabled/default
+  fi
+  cp $DIR/nginx/sdp.conf $NGINX_AVAIL/sdp.conf
+  if [ ! -e $NGINX_ENABLED/sdp.conf ]; then
+    ln -s $NGINX_AVAIL/sdp.conf $NGINX_ENABLED/sdp.conf
+  fi
+  ## Put PAC script in place
+  PAC_DIR=/var/www/html
+  cp $DIR/nginx/sdp_pac.php $PAC_DIR/sdp_pac.php
+  sed -i "s@\$servername =.*@\$servername = \"$HOST\";@" $PAC_DIR/sdp_pac.php
+  sed -i "s@\$username =.*@\$username = \"$USER\";@" $PAC_DIR/sdp_pac.php
+  sed -i "s@\$password =.*@\$password = \"$PASS\";@" $PAC_DIR/sdp_pac.php
+  sed -i "s@\$dbname =.*@\$dbname = \"$DB\";@" $PAC_DIR/sdp_pac.php
+  sed -i "s/return\ \"PROXY\ .*/return\ \"PROXY\ $CLIENT_GATEWAY\:$SQUID_PORT\"\;/" $PAC_DIR/sdp_pac.php
+  ## Restart Nginx service
+  service php7.0-fpm restart
+  service nginx restart
 }
 
 function configureRedsocks {
@@ -537,7 +556,7 @@ configureOpenvpn
 installClientManagement
 installGatewayManagement
 configureSquid
-addBasePac
+configureNginx
 configureRedsocks
 createManagementUser
 

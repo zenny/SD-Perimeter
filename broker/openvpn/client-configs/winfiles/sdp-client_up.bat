@@ -1,5 +1,5 @@
 @ECHO OFF
-reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v AutoConfigURL /t REG_SZ /d "http://10.255.4.1/home-sdp.pac" /f
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v AutoConfigURL /t REG_SZ /d "http://10.255.4.1/sdp_pac.php" /f
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v EnableAutoProxyResultCache /t REG_DWORD /d "0" /f
 
 start /d "%PROGRAMFILES%\Internet Explorer" IEXPLORE.EXE github.com
