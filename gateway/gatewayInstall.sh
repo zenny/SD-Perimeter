@@ -49,7 +49,6 @@ function configureOpenvpn {
   echo "Putting OpenVPN Configuration in place"
   ##Create OpenVPN/FWKNOP script
   OVPN_FWKNOP=$OPENVPN_DIR/scripts/openvpn_fwknop.sh
-  chmod +x $OVPN_FWKNOP
   echo "#!/bin/bash" > $OVPN_FWKNOP
   echo "" >> $OVPN_FWKNOP
   echo "/bin/su - root -c \"/usr/bin/fwknop -A udp/$GATEWAY_VPN_PORT -f 10 --use-hmac -D $PRIMARY_IP -R --key-base64-hmac=$FWKNOP_HMAC --key-base64-rijndael=$FWKNOP_RIJNDAEL --wget-cmd /usr/bin/wget\"" >> $OVPN_FWKNOP

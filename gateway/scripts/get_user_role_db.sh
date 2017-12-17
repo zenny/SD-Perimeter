@@ -8,7 +8,7 @@ function getResult {
   if [ "$group" -eq "all_users" ]; then
     RESULTS=1
   else
-    RESULTS=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -se "select count(*) from squid_group_helper where user_id='$AUTHUSER' and ugroup_id='$group'"`
+    RESULTS=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -se "select count(*) from squid_group_helper where user='$AUTHUSER' and ugroup='$group'"`
   fi
   if [ "$RESULTS" -eq 1 ]; then
     echo "${id} OK user=$AUTHUSER"
