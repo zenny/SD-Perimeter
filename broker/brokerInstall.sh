@@ -267,6 +267,7 @@ function configureFirewall {
   ##UFW rules
   ufw allow from $CLIENT_NET to any port $NGINX_PORT proto tcp
   ufw allow from $CLIENT_NET to any port $SQUID_PORT proto tcp
+  ufw allow from $CLIENT_NET to any port $REDSOCKS_PORT proto tcp
   ufw allow from $GATEWAY_NET to any port 3306 proto tcp
   ##These will be removed with the lockdown script once everything has been confirmed
   ufw allow 22/tcp
