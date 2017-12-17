@@ -37,7 +37,7 @@ function infoGather {
     echo ""
   fi
   if [ -z ${OPENVPN_RSA_DIR+x} ]; then
-    read -p "Choose your EasyRSA installation Directory [Default: /etc/openvpn/easy-rsa]: " OPENVPN_RSA_DIR
+    #read -p "Choose your EasyRSA installation Directory [Default: /etc/openvpn/easy-rsa]: " OPENVPN_RSA_DIR
     OPENVPN_RSA_DIR=${OPENVPN_RSA_DIR:-/etc/openvpn/easy-rsa}
     OPENVPN_KEYS=$OPENVPN_RSA_DIR/keys
     echo ""
@@ -79,7 +79,7 @@ function infoGather {
     echo ""
   fi
   if [ -z ${PASS+x} ]; then
-    read -sp "Choose a password for your OpenVPN database user [Default: ovpnpass]: " PASS
+    read -sp "Choose a password for your SDP database user [Default: sdpdbpass]: " PASS
     PASS=${PASS:-sdpdbpass}
     USER='sdpuser'
     DB='sdpdb'
@@ -460,7 +460,7 @@ function configureSquid {
   if [ ! -e ${SQUIDCONF}.d ]; then
     mkdir ${SQUIDCONF}.d
   fi
-  if [! -e ${SQUIDCONF}.d/acl_sdp.conf ]; then
+  if [ ! -e ${SQUIDCONF}.d/acl_sdp.conf ]; then
     touch ${SQUIDCONF}.d/acl_sdp.conf
   fi
   if [ ! -e ${SQUIDCONF}.d/acl_sdp_clients.conf ]; then

@@ -72,8 +72,8 @@ CREATE OR REPLACE VIEW `squid_user_helper` AS
     and `u`.`user_mail`=`l`.`user_id`;
 
 CREATE OR REPLACE VIEW `squid_group_helper` AS 
-    select `u`.`user_mail` as `user_id`,
-        `g`.`ugroup_name` as `ugroup_id`
+    select `u`.`user_mail` as `user`,
+        `g`.`ugroup_name` as `ugroup`
     from `user` `u`, `ugroup` `g`, `user_group` `ug`
     where `u`.`user_id` = `ug`.`user_id` 
     and `g`.`ugroup_id` = `ug`.`ugroup_id`;
@@ -119,7 +119,6 @@ KEY `gateway_id` (`gateway_id`)
 CREATE TABLE IF NOT EXISTS `sdp_resource` (
     `resource_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
     `resource_name` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
-    `resource_domain` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
     `resource_type` enum('web','tcp') NOT NULL DEFAULT 'web',
     `resource_enabled` enum('yes','no') NOT NULL DEFAULT 'yes',
     `resource_start_date` date NOT NULL,
@@ -127,26 +126,27 @@ CREATE TABLE IF NOT EXISTS `sdp_resource` (
 PRIMARY KEY (`resource_id`)
 );
 
-CREATE TABLE IF NOT EXISTS `sdp_port` (
+CREATE TABLE IF NOT EXISTS `sdp_resource_address` (
+    `address_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `address_name` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
+    `address_domain` varchar(64) COLLATE utf8_unicode_ci NOT NULL,
+    `resource_id` int(10) unsigned NOT NULL,
+PRIMARY KEY (`address_id`),
+CONSTRAINT `fk_sra_resource_id` FOREIGN KEY (`resource_id`)
+    REFERENCES `sdp_resource` (`resource_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS `sdp_resource_port` (
     `port_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
     `port_name` varchar(64) COLLATE utf8_unicode_ci DEFAULT NULL,
     `port_number` varchar(5) COLLATE utf8_unicode_ci DEFAULT NULL,
     `port_protocol` enum('tcp','udp') NOT NULL DEFAULT 'tcp',
-PRIMARY KEY (`port_id`),
-KEY `port_number` (`port_number`)
-);
-
-CREATE TABLE IF NOT EXISTS `sdp_resource_port` (
-    `srp_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
     `resource_id` int(10) unsigned NOT NULL,
-    `port_id` int(10) unsigned NOT NULL,
-PRIMARY KEY (`srp_id`),
+PRIMARY KEY (`port_id`),
 CONSTRAINT `fk_srp_resource_id` FOREIGN KEY (`resource_id`)
     REFERENCES `sdp_resource` (`resource_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE,
-CONSTRAINT `fk_srp_port_id` FOREIGN KEY (`port_id`)
-    REFERENCES `sdp_port` (`port_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE
 );
@@ -191,41 +191,42 @@ CREATE OR REPLACE VIEW `resource_gateway_helper` AS
     where `r`.`resource_id` = `sgr`.`resource_id`
     and `g`.`gateway_id` = `sgr`.`gateway_id`;
 
-CREATE OR REPLACE VIEW `resource_rules_helper` AS
-    select `r`.`resource_name`,
-        `r`.`resource_domain`,
-        `r`.`resource_type`,
-        `p`.`port_name`,
-        `p`.`port_number`,
-        `g`.`ugroup_name`
-    from `sdp_resource` `r`,
-        `sdp_port` `p`,
-        `ugroup` `g`,
-        `sdp_resource_group` `srg`,
-        `sdp_resource_port` `srp`
-    where `r`.`resource_id` = `srg`.`resource_id`
-    and `r`.`resource_id` = `srp`.`resource_id`
-    and `p`.`port_id` = `srp`.`port_id`
-    and `g`.`ugroup_id` = `srg`.`ugroup_id`;
-
 CREATE OR REPLACE VIEW `squid_rules_helper` AS
     select `r`.`resource_name`,
-        `r`.`resource_domain`,
+        `sra`.`address_domain`,
         `r`.`resource_type`,
-        GROUP_CONCAT(DISTINCT `p`.`port_number` SEPARATOR ' ') ports,
+        `srp`.`port_name`,
+        `srp`.`port_number`,
+        `g`.`ugroup_name`
+    from `sdp_resource` `r`,
+        `sdp_resource_address` `sra`,
+        `sdp_resource_port` `srp`,
+        `ugroup` `g`,
+        `sdp_resource_group` `srg`
+    where `r`.`resource_id` = `srg`.`resource_id`
+    and `r`.`resource_id` = `sra`.`resource_id`
+    and `r`.`resource_id` = `srp`.`resource_id`
+    and `g`.`ugroup_id` = `srg`.`ugroup_id`;
+
+CREATE OR REPLACE VIEW `resource_rules_helper` AS
+    select `r`.`resource_name`,
+        GROUP_CONCAT(DISTINCT `sra`.`address_domain` SEPARATOR ' ') addresses,
+        `r`.`resource_type`,
+        GROUP_CONCAT(DISTINCT `srp`.`port_number` SEPARATOR ' ') ports,
         GROUP_CONCAT(DISTINCT `gr`.`ugroup_name` SEPARATOR ' ') groups,
         `g`.`gateway_name`,
         `g`.`gateway_ip`
     from `sdp_resource` `r`,
-        `sdp_port` `p`,
+        `sdp_resource_address` `sra`,
         `ugroup` `gr`,
         `sdp_resource_group` `srg`,
         `sdp_resource_port` `srp`,
         `gateway` `g`,
         `sdp_gateway_resource` `sgr`
     where `r`.`resource_id` = `srg`.`resource_id`
+    and `r`.`resource_id` = `sra`.`resource_id`
     and `r`.`resource_id` = `srp`.`resource_id`
-    and `p`.`port_id` = `srp`.`port_id`
     and `gr`.`ugroup_id` = `srg`.`ugroup_id`
     and `r`.`resource_id` = `sgr`.`resource_id`
-    and `g`.`gateway_id` = `sgr`.`gateway_id`;
+    and `g`.`gateway_id` = `sgr`.`gateway_id`
+    group by `r`.`resource_name`;

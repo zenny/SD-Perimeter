@@ -5,5 +5,5 @@ DB_CONFIG=/etc/openvpn/scripts/config.sh
 
 echo
 echo "Configured Resources:"
-mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "select resource_name name, resource_domain, resource_type, resource_enabled from sdp_resource"
+mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "select resource_name name, resource_type, resource_enabled from sdp_resource"
 echo

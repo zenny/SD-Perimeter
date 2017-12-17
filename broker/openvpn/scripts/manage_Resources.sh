@@ -60,6 +60,7 @@ function resourcePorts {
     resourcePorts
   fi
   RESOURCE_PORT+=("$newPort")
+  unset newPort
   read -r -p "Would you you like to add another port? [Y/n] " addPort
   case "$addPort" in
     [yY][eE][sS]|[yY]) 
@@ -75,6 +76,7 @@ function resourceGroups {
   echo
   read -p "Enter a new group for this resource? " newGroup
   RESOURCE_GROUP+=("$newGroup")
+  unset newGroup
   read -r -p "Would you you like to add another group? [Y/n] " addGroup
   case "$addGroup" in
     [yY][eE][sS]|[yY])
@@ -90,8 +92,13 @@ function resourceGroups {
 }
 
 function insertDB {
-  if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from sdp_resource where resource_name='$RESOURCE_NAME' and resource_domain='$RESOURCE_DOMAIN' and resource_type='$RESOURCE_TYPE'"` -lt 1 ]; then
-    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource (resource_name, resource_domain, resource_type, resource_enabled, resource_start_date, resource_end_date) values ('$RESOURCE_NAME','$RESOURCE_DOMAIN','$RESOURCE_TYPE','yes',now(),now() + INTERVAL 50 year)"
+  ## Insert SDP Resource
+  if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from sdp_resource where resource_name='$RESOURCE_NAME' and resource_type='$RESOURCE_TYPE'"` -lt 1 ]; then
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource (resource_name, resource_type, resource_enabled, resource_start_date, resource_end_date) values ('$RESOURCE_NAME','$RESOURCE_TYPE','yes',now(),now() + INTERVAL 50 year)"
+  fi
+  ##Insert Domains
+  if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from sdp_resource_address where resource_id = (select resource_id from sdp_resource where resource_name='$RESOURCE_NAME')"` -lt 1 ]; then
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource_address (address_name, address_domain, resource_id) values ('$RESOURCE_DOMAIN','$RESOURCE_DOMAIN',(select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'))"
   fi
   ##Insert Groups
   for name in "${RESOURCE_GROUP[@]}"
@@ -104,10 +111,9 @@ function insertDB {
   ##Insert Ports
   for number in "${RESOURCE_PORT[@]}"
   do
-    if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from sdp_port where port_number = '$number'"` -lt 1 ]; then
-      mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_port (port_name,port_number,port_protocol) values ('$number','$number','tcp')"
+    if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from sdp_resource_port where port_number = '$number' and resource_id = (select resource_id from sdp_resource where resource_name='$RESOURCE_NAME')"` -lt 1 ]; then
+      mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource_port (port_name,port_number,port_protocol,resource_id) values ('$number','$number','tcp',(select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'))"
     fi
-    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource_port (resource_id,port_id) values ((select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'),(select port_id from sdp_port where port_number='$number'))"
   done
   ##Gateway Association
   if [ "$GATEWAY_ADDRESS" != "DIRECT" ]; then
@@ -121,12 +127,8 @@ function writeSquid {
   sed -i "/\ ${RESOURCE_NAME}_domain/d" $SQUID_ACL_CONF
   echo "acl ${RESOURCE_NAME}_domain dstdomain $RESOURCE_DOMAIN" >> $SQUID_ACL_CONF
 
-  for name in "${RESOURCE_GROUP[@]}"
-  do
-    if [ `grep -c ${name}_group $SQUID_ACL_CONF` -lt 1 ]; then
-      echo "acl ${name}_group external sdp_user_groups $name" >> $SQUID_ACL_CONF
-    fi
-  done
+  sed -i "/\ ${RESOURCE_NAME}_group/d" $SQUID_ACL_CONF
+  echo "acl ${RESOURCE_NAME}_group external sdp_user_groups $RESOURCE_NAME" >> $SQUID_ACL_CONF
 
   sed -i "/\ ${RESOURCE_NAME}_port/d" $SQUID_ACL_CONF
   echo "acl ${RESOURCE_NAME}_port port ${RESOURCE_PORT[@]}" >> $SQUID_ACL_CONF
@@ -138,10 +140,8 @@ function writeSquid {
   fi
 
   sed -i "/\ ${RESOURCE_NAME}_domain/d" $SQUID_ACCESS
-  for name in "${RESOURCE_GROUP[@]}"
-  do
-    echo "http_access allow ${RESOURCE_NAME}_domain ${RESOURCE_NAME}_port ${name}_group" >> $SQUID_ACCESS
-  done
+  echo "http_access allow ${RESOURCE_NAME}_domain ${RESOURCE_NAME}_port ${RESOURCE_NAME}_group" >> $SQUID_ACCESS
+
   echo "http_access deny ${RESOURCE_NAME}_domain" >> $SQUID_ACCESS
 
   service squid reload
@@ -154,12 +154,20 @@ function writeSquid {
   ##    fi
   ##  done
   ##fi
+
+  if [ $RESOURCE_TYPE == 'tcp' ]; then
+    if [ ! -e "$OPENVPN_CLIENT_FOLDER/DEFAULT" ]; then
+      touch $OPENVPN_CLIENT_FOLDER/DEFAULT
+    fi
+    echo "push \"route $RESOURCE_DOMAIN 255.255.255.255\"" >> $OPENVPN_CLIENT_FOLDER/DEFAULT
+  fi
 }
 
 function deleteResource {
   mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "delete from sdp_resource where resource_name='$RESOURCE_NAME'"
   sed -i "/\ ${RESOURCE_NAME}_domain/d" $SQUID_ACL_CONF
   sed -i "/\ ${RESOURCE_NAME}_port/d" $SQUID_ACL_CONF
+  sed -i "/\ ${RESOURCE_NAME}_group/d" $SQUID_ACL_CONF
   sed -i "/\ ${RESOURCE_NAME}_domain/d" $SQUID_CACHE_ACCESS
   sed -i "/\ ${RESOURCE_NAME}_domain/d" $SQUID_ACCESS
   service squid reload
@@ -194,6 +202,10 @@ function startAgain {
 }
 
 function start {
+  unset RESOURCE_NAME
+  unset RESOURCE_TYPE
+  unset RESOURCE_PORT
+  unset RESOURCE_GROUP
   read -p "What name would you like to use for your resource? " RESOURCE_NAME
   RESOURCE_EXISTS=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from sdp_resource where resource_name='$RESOURCE_NAME'"`
   if [ "$RESOURCE_EXISTS" -gt 0 ]; then
