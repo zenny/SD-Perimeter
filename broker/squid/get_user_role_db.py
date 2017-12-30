@@ -8,12 +8,6 @@ USER = "sdpuser"
 PASS = "sdpdbpass"
 DB = "sdpdb"
 
-db = MySQLdb.connect(host=(HOST),
-        port=(PORT),
-        user=(USER),
-        passwd=(PASS),
-        db=(DB))
-
 while True:
     id, srchost, resource = input(">").split()
     try:
