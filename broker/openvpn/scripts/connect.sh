@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. /etc/openvpn/scripts/config.sh
+. /opt/sdp/scripts/config.sh
 
 ##Close out any sessions with the same IP as us
 mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "UPDATE log SET log_end_time=now(),log_received='0',log_send='0' WHERE log_remote_ip='$ifconfig_pool_remote_ip' AND log_end_time='0000-00-00 00:00:00'"

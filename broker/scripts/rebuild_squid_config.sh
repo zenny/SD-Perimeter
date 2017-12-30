@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DB_CONFIG=/etc/openvpn/scripts/config.sh
+DB_CONFIG=/opt/sdp/scripts/config.sh
 . $DB_CONFIG
 
 

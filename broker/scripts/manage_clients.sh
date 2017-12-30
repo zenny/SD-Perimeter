@@ -9,7 +9,7 @@
 
 # Set where we're working from
 ## These will be installation specific
-DB_CONFIG=/etc/openvpn/scripts/config.sh
+DB_CONFIG=/opt/sdp/scripts/config.sh
 . $DB_CONFIG
 
 # Either read the CN from $1 or prompt for it

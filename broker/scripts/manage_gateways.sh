@@ -9,7 +9,7 @@
 
 # Set where we're working from
 ## These will be installation specific
-DB_CONFIG=/etc/openvpn/scripts/config.sh
+DB_CONFIG=/opt/sdp/scripts/config.sh
 OPENVPN_GATEWAY_BASE=$OPENVPN_CLIENT_FOLDER/sdp-gateway-base
 
 . $DB_CONFIG
@@ -198,7 +198,7 @@ function showSetupInfo {
   echo
   echo
   echo
-  echo "Enter the following command on your Gateway to create the private key:"
+  echo "As root, Enter the following command on your Gateway to create the private key:"
   echo ""
   echo "mkdir -p /home/sdpmanagement"
   echo "echo \"`cat /home/sdpmanagement/${CN}_rsa`\" > /home/sdpmanagement/id_rsa"
@@ -207,7 +207,7 @@ function showSetupInfo {
   echo 
   read -p "Press 'Enter' when completed and proceed to next step..."
   clear
-  echo "On the gateway, you must execute the 'gatewayInstall.sh' setup script"
+  echo "On the gateway, you must execute the 'gatewayInstall.sh' setup script as root"
   echo
   echo
   echo

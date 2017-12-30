@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. /etc/openvpn/scripts/config.sh
+. /opt/sdp/scripts/config.sh
 
 ##Ensure any open sessions are marked closed
 mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "UPDATE log SET log_end_time=now() WHERE log_end_time='0000-00-00 00:00:00'"

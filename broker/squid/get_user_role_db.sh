@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## Update this file to edit db settings
-. /etc/openvpn/scripts/config.sh
+. /opt/sdp/scripts/config.sh
 
 function getResult {
   AUTHUSER=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -se "select user_id from squid_user_helper where log_remote_ip='$srchost'"`

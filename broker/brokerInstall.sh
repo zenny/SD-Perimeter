@@ -4,13 +4,13 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ####Information Gathering
 function infoGather {
   OPENVPN_DIR=/etc/openvpn
-  DB_CONFIG=$OPENVPN_DIR/scripts/config.sh
+  DB_CONFIG=/opt/sdp/scripts/config.sh
   PRIMARY_IP=`ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1'`
   PRIMARY_IF=`ifconfig | grep -B1 "inet addr:$PRIMARY_IP" | awk '$1!="inet" && $1!="--" {print $1}'`
   BROKER_HOSTNAME=sdp-broker
   ##Check for pre-existing configuration and create if it does not exist
-  if [ ! -e "$OPENVPN_DIR/scripts" ]; then
-    mkdir -p $OPENVPN_DIR/scripts
+  if [ ! -e "/opt/sdp/scripts" ]; then
+    mkdir -p /opt/sdp/scripts
   fi
   if [ ! -e "$DB_CONFIG" ]; then
     OPENVPN_CLIENT_FOLDER=$OPENVPN_DIR/client
@@ -136,7 +136,7 @@ function writeConfig {
   echo "" >> $DB_CONFIG
   echo "####Directories" >> $DB_CONFIG
   echo "OPENVPN_DIR=/etc/openvpn" >> $DB_CONFIG
-  echo "DB_CONFIG=\$OPENVPN_DIR/scripts/config.sh" >> $DB_CONFIG
+  echo "DB_CONFIG=/opt/sdp/scripts/config.sh" >> $DB_CONFIG
   echo "OPENVPN_CLIENT_FOLDER=\$OPENVPN_DIR/client" >> $DB_CONFIG
   echo "OUTPUT_DIR=\$OPENVPN_DIR/client-configs/files" >> $DB_CONFIG
   echo "BASE_CONFIG=\$OPENVPN_DIR/client-configs/base.conf" >> $DB_CONFIG
@@ -359,6 +359,9 @@ function configureEasyrsa {
 
 function configureOpenvpn {
   echo "Configuring OpenVPN"
+  if [ ! -e $OPENVPN_DIR/scripts ]; then
+    mkdir -p $OPENVPN_DIR/scripts
+  fi
   cp $DIR/openvpn/scripts/up.sh $OPENVPN_DIR/scripts/
   cp $DIR/openvpn/scripts/down.sh $OPENVPN_DIR/scripts/
   cp $DIR/openvpn/scripts/connect.sh $OPENVPN_DIR/scripts/
@@ -424,8 +427,8 @@ function installClientManagement {
   fi
   cp $DIR/openvpn/client-configs/base.conf $OPENVPN_DIR/client-configs/
   cp $DIR/openvpn/client-configs/winfiles/* $BASE_WIN_FILES/
-  cp $DIR/openvpn/scripts/manage_clients.sh $OPENVPN_DIR/scripts/
-  chmod +x $OPENVPN_DIR/scripts/manage_clients.sh
+  cp $DIR/scripts/manage_clients.sh /opt/sdp/scripts/
+  chmod +x /opt/sdp/scripts/manage_clients.sh
   sed -i "s/verify\-x509\-name\ .*/verify\-x509\-name\ \'C\=$KEY_COUNTRY\,\ ST\=$KEY_PROVINCE\,\ L\=KEY_CITY\,\ O\=$KEY_ORG\,\ OU\=$KEY_OU\,\ CN\=$BROKER_HOSTNAME\,\ name\=$KEY_NAME\,\ emailAddress\=$KEY_EMAIL'/" $BASE_CONFIG
   sed -i "s/remote\ .*/remote\ $PRIMARY_IP\ $CLIENT_VPN_PORT/" $BASE_CONFIG
   wget http://www.dstuart.org/fwknop/fwknop-2.6.9-w81.exe -O $BASE_WIN_FILES/fwknop.exe
@@ -442,8 +445,8 @@ function installGatewayManagement {
     mkdir $OPENVPN_DIR/gateway-configs
   fi
   cp $DIR/openvpn/gateway-configs/gatewaybase.conf $OPENVPN_DIR/gateway-configs/
-  cp $DIR/openvpn/scripts/manage_gateways.sh $OPENVPN_DIR/scripts/
-  chmod +x $OPENVPN_DIR/scripts/manage_gateways.sh
+  cp $DIR/scripts/manage_gateways.sh /opt/sdp/scripts/
+  chmod +x /opt/sdp/scripts/manage_gateways.sh
   sed -i "s/verify\-x509\-name\ .*/verify\-x509\-name\ \'C\=$KEY_COUNTRY\,\ ST\=$KEY_PROVINCE\,\ L\=$KEY_CITY\,\ O\=$KEY_ORG\,\ OU\=$KEY_OU\,\ CN\=$BROKER_HOSTNAME\,\ name\=$KEY_NAME\,\ emailAddress\=$KEY_EMAIL'/" $GATEWAY_BASE_CONFIG
   sed -i "s/remote\ .*/remote\ $PRIMARY_IP\ $GATEWAY_VPN_PORT/" $GATEWAY_BASE_CONFIG
 }
@@ -531,7 +534,8 @@ function configureRedsocks {
   service redsocks restart
 }
 
-function createManagementUser {
+function createManagement {
+  ##Create a Management User
   if [ `grep -c sdpmanagement /etc/passwd` -lt '1' ]; then
     echo "Creating Management User"
     SDP_MANAGE_HOME=/home/sdpmanagement
@@ -542,6 +546,14 @@ function createManagementUser {
     cat $SDP_MANAGE_HOME/.ssh/id_rsa.pub >> $SDP_MANAGE_HOME/.ssh/authorized_keys
     chown sdpmanagement:sdpmanagement -R $SDP_MANAGE_HOME
   fi
+  ##Put management Scripts in place
+  cp $DIR/scripts/list_resources.sh /opt/sdp/scripts/
+  chmod +x /opt/sdp/scripts/list_resources.sh
+  cp $DIR/scripts/manage_Resources.sh /opt/sdp/scripts/
+  chmod +x /opt/sdp/scripts/manage_Resources.sh
+  cp $DIR/scripts/rebuild_squid_config.sh /opt/sdp/scripts/
+  chmod +x /opt/sdp/scripts/rebuild_squid_config.sh
+
 }
 
 ### Execute order
@@ -558,7 +570,7 @@ installGatewayManagement
 configureSquid
 configureNginx
 configureRedsocks
-createManagementUser
+createManagement
 
 echo ""
 echo "Broker Configuration is now complete!!"
@@ -566,7 +578,7 @@ echo "Broker Configuration is now complete!!"
 function stage_gateway_now {
   read -p "Choose a gateway hostname [Default: gateway1]: " GW_HOSTNAME
   GW_HOSTNAME=${GW_HOSTNAME:-gateway1}
-  bash $OPENVPN_DIR/scripts/manage_gateways.sh $GW_HOSTNAME
+  bash /opt/sdp/scripts/manage_gateways.sh $GW_HOSTNAME
 }
 
 echo ""

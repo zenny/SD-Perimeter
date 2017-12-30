@@ -5,7 +5,3 @@ INSERT INTO `user_group` (`user_id`,`ugroup_id`) VALUES ( (select `user_id` from
 INSERT INTO ugroup (ugroup_name,ugroup_description) VALUES ('good','good');
 INSERT INTO ugroup (ugroup_name,ugroup_description) VALUES ('restricted','restricted');
 INSERT INTO ugroup (ugroup_name,ugroup_description) VALUES ('vip','vip');
-
-INSERT INTO sdp_port (port_name,port_number) VALUES ('https','443');
-INSERT INTO sdp_port (port_name,port_number) VALUES ('rdp','3389');
-INSERT INTO sdp_port (port_name,port_number) VALUES ('ssh','22');
