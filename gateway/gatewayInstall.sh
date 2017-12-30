@@ -36,7 +36,7 @@ function retrieveConfig {
 function installPackages {
   echo "Installing packages"
   apt-get update
-  apt install -y mysql-client fwknop-client openvpn squid
+  apt install -y mysql-client fwknop-client openvpn squid python3-mysqldb
 }
 
 function configureFwknop {
@@ -90,12 +90,18 @@ function configureOpenvpn {
 function configureSquid {
   echo "Putting Squid Configuration in place."
   SQUIDCONF=/etc/squid/squid.conf
+  SQUIDSCRIPT=/etc/squid/get_user_role_db.py
     if [ ! -e ${SQUIDCONF}.orig ]; then
       mv $SQUIDCONF ${SQUIDCONF}.orig
     fi
     cp $DIR/scripts/squid.conf $SQUIDCONF
-    cp $DIR/scripts/get_user_role_db.sh /etc/squid/get_user_role_db.sh
-    chmod +x /etc/squid/get_user_role_db.sh
+    cp $DIR/scripts/get_user_role_db.py $SQUIDSCRIPT
+    sed -i "s@HOST \= .*@HOST \= \"${HOST}\"@" $SQUIDSCRIPT
+    sed -i "s@PORT \= .*@PORT \= ${PORT}@" $SQUIDSCRIPT
+    sed -i "s@USER \= .*@USER \= \"${USER}\"@" $SQUIDSCRIPT
+    sed -i "s@PASS \= .*@PASS \= \"${PASS}\"@" $SQUIDSCRIPT
+    sed -i "s@DB \= .*@DB \= \"${DB}\"@" $SQUIDSCRIPT
+    chmod +x /etc/squid/get_user_role_db.py
     sed -i "s@http\_port\ .*@http\_port\ $SQUID_PORT@" $SQUIDCONF 
     if [ ! -e ${SQUIDCONF}.d ]; then
       mkdir ${SQUIDCONF}.d
