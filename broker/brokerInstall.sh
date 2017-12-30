@@ -196,7 +196,7 @@ function installPackages {
   add-apt-repository 'deb [arch=amd64,i386,ppc64el] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu xenial main'
   export DEBIAN_FRONTEND="noninteractive"
   apt-get update
-  apt install -y mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix jq php-fpm php-mysql
+  apt install -y mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix jq php-fpm php-mysql python3-mysqldb
 }
 
 ####Configure Mariadb Installation
@@ -454,12 +454,18 @@ function installGatewayManagement {
 function configureSquid {
   echo "Configuring Squid"
   SQUIDCONF=/etc/squid/squid.conf
+  SQUIDSCRIPT=/etc/squid/get_user_role_db.py
   if [ ! -e ${SQUIDCONF}.orig ]; then
     mv $SQUIDCONF ${SQUIDCONF}.orig
   fi
   cp $DIR/squid/squid.conf $SQUIDCONF
-  cp $DIR/squid/get_user_role_db.sh /etc/squid/get_user_role_db.sh
-  chmod +x /etc/squid/get_user_role_db.sh
+  cp $DIR/squid/get_user_role_db.py /etc/squid/get_user_role_db.py
+  sed -i "s@HOST \= .*@HOST \= \"${HOST}\"@" $SQUIDSCRIPT
+  sed -i "s@PORT \= .*@PORT \= ${PORT}@" $SQUIDSCRIPT
+  sed -i "s@USER \= .*@USER \= \"${USER}\"@" $SQUIDSCRIPT
+  sed -i "s@PASS \= .*@PASS \= \"${PASS}\"@" $SQUIDSCRIPT
+  sed -i "s@DB \= .*@DB \= \"${DB}\"@" $SQUIDSCRIPT
+  chmod +x /etc/squid/get_user_role_db.py
   sed -i "s@http\_port\ .*@http\_port\ $SQUID_PORT@" $SQUIDCONF 
   if [ ! -e ${SQUIDCONF}.d ]; then
     mkdir ${SQUIDCONF}.d
