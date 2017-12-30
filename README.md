@@ -1,6 +1,6 @@
 # SD-Perimeter
 
-This project is NOT yet feature complete!! Installation should be considered at your own risk!
+This project is mostly feature complete, however, many things are still in flux and documentation is sorely lacking as a result.  Contributors and questions are welcome, but installing and then updating might very well break things since migrations are not yet being considered.
 
 This project is focused on providing a set of scripts that can be used to create a Software Defined Perimeter using open source tools readily available in common Linux distributions. The techniques implemented here are heavily influenced by Google's <a href="https://www.beyondcorp.com/">BeyondCorp</a> and the Cloud Security Alliance model of <a href="https://cloudsecurityalliance.org/group/software-defined-perimeter/#_overview">Software Defined Perimeter</a>.
 
