@@ -202,6 +202,7 @@ function installPackages {
   ## Run package install
   apt-get update
   apt install -y mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix jq php-fpm php-mysql python3-mysqldb freeradius freeradius-utils openvpn-auth-radius pwgen
+  systemctl enable freeradius
   service freeradius start
   apt-get install -y freeradius-mysql freeradius-ldap
 }
@@ -245,6 +246,7 @@ function configureDatabase {
   ## Special thanks: https://sysadmin.compxtreme.ro/how-to-install-a-openvpn-system-based-on-userpassword-authentication-with-mysql-day-control-libpam-mysql/
   mysql -u $USER -p$PASS $DB < $DIR/mariadbconf/sdp.sql
   if [ "$NEWDATABASE" == "true" ]; then
+    mysql -u $USER -p$PASS $DB -e "INSERT INTO ugroup (ugroup_name,ugroup_description) VALUES 'all_users','all_users')"
     mysql -u $USER -p$PASS $DB < $DIR/mariadbconf/sampledata.sql
   fi
   ## Put default user file in place
@@ -371,22 +373,27 @@ function configureRadius {
   if [ ! -e /etc/freeradius/mods-enabled/sql ]; then
     ln -s /etc/freeradius/mods-available/sql /etc/freeradius/mods-enabled/
   fi
-  if [ ! -e /etc/freeradius/mods-enabled/ldap ]; then
-    #ln -s /etc/freeradius/mods-available/ldap /etc/freeradius/mods-enabled/
-  fi
+  #if [ ! -e /etc/freeradius/mods-enabled/ldap ]; then
+  #  ln -s /etc/freeradius/mods-available/ldap /etc/freeradius/mods-enabled/
+  #fi
   if [ -z ${RADSECRET+x} ]; then
     RADSECRET=`pwgen -s 24 1`
-  fi
     echo ""
-    echo "NGINX_PORT=$NGINX_PORT" >> $DB_CONFIG
+    echo "RADSECRET=$RADSECRET" >> $DB_CONFIG
   fi
   if [ "$NEWDATABASE" == "true" ]; then
     mysql -u $USER -p$PASS radius < /etc/freeradius/mods-config/sql/main/mysql/schema.sql
     mysql -u $USER -p$PASS radius -e "insert into nas (nasname,shortname,secret) values ('127.0.0.1','127.0.0.1','${RADSECRET}')"
+    mysql -u $USER -p$PASS radius -e "insert into radgroupreply (groupname, attribute, op, value) values ('all_users','acct-interim-interval',':=','600')"
+    mysql -u $USER -p$PASS radius -e "insert into radgroupreply (groupname, attribute, op, value) values ('all_users','Fall-Through','=','Yes')"
   fi
+  sed -i "s@\tsecret \= .*@\tsecret \= $RADSECRET@" /etc/freeradius/clients.conf
+  sed -i "s@.*driver \= .*@\tdriver \= \"rlm_sql_mysql\"@" /etc/freeradius/mods-enabled/sql
+  sed -i "s@.*dialect \= .*@\tdialect \= \"mysql\"@" /etc/freeradius/mods-enabled/sql
   sed -i "s@.*login \= .*@\tlogin \= \"$USER\"@" /etc/freeradius/mods-enabled/sql
   sed -i "s@.*password \= .*@\tpassword \= \"$PASS\"@" /etc/freeradius/mods-enabled/sql
   sed -i "s@.*read_clients \= .*@\tread_clients \= yes@" /etc/freeradius/mods-enabled/sql
+  sed -i "s@\-sql@sql@" /etc/freeradius/sites-enabled/default /etc/freeradius/sites-enabled/inner-tunnel
 
   service freeradius restart
 }
@@ -421,6 +428,7 @@ function configureOpenvpn {
   sed -i "s@tls\-auth\ .*@tls\-auth\ $OPENVPN_KEYS\/ta\.key\ 0@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@server\ .*@server\ $CLIENT_NETWORK\ $CLIENT_NETMASK@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@client\-config\-dir\ .*@client\-config\-dir\ $OPENVPN_CLIENT_FOLDER@" $OPENVPN_DIR/client_vpn.conf
+  sed -i "s@plugin.*@plugin \/usr\/lib\/openvpn\/radiusplugin\.so $OPENVPN_DIR\/radiusplugin\.cnf@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@ifconfig\-pool\-persist\ .*@ifconfig\-pool\-persist\ $OPENVPN_DIR\/client_vpn_ipp.txt 60@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@status\ .*@status\ $OPENVPN_DIR\/client\_vpn\-status\.log@" $OPENVPN_DIR/client_vpn.conf
   sed -i "s@up\ .*@up\ $OPENVPN_DIR\/scripts\/up\.sh@" $OPENVPN_DIR/client_vpn.conf
