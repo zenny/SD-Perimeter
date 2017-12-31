@@ -2,7 +2,7 @@
 
 . /etc/openvpn/scripts/config.sh
 
-apt-get autoremove --purge mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix jq php-fpm php-mysql python3-mysqldb freeradius-mysql freeradius-ldap freeradius -y
+apt-get autoremove --purge mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix jq php-fpm php-mysql python3-mysqldb freeradius-mysql freeradius-ldap freeradius pwgen -y
 add-apt-repository --remove ppa:cipherdyne/fwknop -y
 add-apt-repository --remove ppa:freeradius/stable-3.0 -y
 add-apt-repository --remove 'deb [arch=amd64,i386,ppc64el] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu xenial main' -y

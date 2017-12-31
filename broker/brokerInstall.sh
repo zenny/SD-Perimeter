@@ -201,7 +201,7 @@ function installPackages {
   fi
   ## Run package install
   apt-get update
-  apt install -y mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix jq php-fpm php-mysql python3-mysqldb freeradius freeradius-utils openvpn-auth-radius
+  apt install -y mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix jq php-fpm php-mysql python3-mysqldb freeradius freeradius-utils openvpn-auth-radius pwgen
   service freeradius start
   apt-get install -y freeradius-mysql freeradius-ldap
 }
@@ -235,8 +235,10 @@ function configureDatabase {
   ## Create OpenVPN database user
   if [ "$NEWDATABASE" == "true" ]; then
     mysql -u root -p$rootDBpass -e "CREATE DATABASE IF NOT EXISTS $DB"
+    mysql -u root -p$rootDBpass -e "CREATE DATABASE IF NOT EXISTS radius"
     mysql -u root -p$rootDBpass -e "CREATE USER IF NOT EXISTS $USER@'%' IDENTIFIED BY '${PASS}'"
     mysql -u root -p$rootDBpass -e "GRANT ALL PRIVILEGES ON $DB.* TO '$USER'@'%'"
+    mysql -u root -p$rootDBpass -e "GRANT ALL PRIVILEGES ON radius.* TO '$USER'@'%'"
     mysql -u root -p$rootDBpass -e "FLUSH PRIVILEGES"
   fi
   ## Source in OpenVPN database
@@ -362,6 +364,31 @@ function configureEasyrsa {
   else
     echo "CA Directory already exists.  Moving on."
   fi
+}
+
+function configureRadius {
+  echo "Configuring FreeRADIUS"
+  if [ ! -e /etc/freeradius/mods-enabled/sql ]; then
+    ln -s /etc/freeradius/mods-available/sql /etc/freeradius/mods-enabled/
+  fi
+  if [ ! -e /etc/freeradius/mods-enabled/ldap ]; then
+    #ln -s /etc/freeradius/mods-available/ldap /etc/freeradius/mods-enabled/
+  fi
+  if [ -z ${RADSECRET+x} ]; then
+    RADSECRET=`pwgen -s 24 1`
+  fi
+    echo ""
+    echo "NGINX_PORT=$NGINX_PORT" >> $DB_CONFIG
+  fi
+  if [ "$NEWDATABASE" == "true" ]; then
+    mysql -u $USER -p$PASS radius < /etc/freeradius/mods-config/sql/main/mysql/schema.sql
+    mysql -u $USER -p$PASS radius -e "insert into nas (nasname,shortname,secret) values ('127.0.0.1','127.0.0.1','${RADSECRET}')"
+  fi
+  sed -i "s@.*login \= .*@        login \= \"$USER\"@" /etc/freeradius/mods-enabled/sql
+  sed -i "s@.*password \= .*@        password \= \"$PASS\"@" /etc/freeradius/mods-enabled/sql
+  sed -i "s@.*read_clients \= .*@        read_clients \= yes@" /etc/freeradius/mods-enabled/sql
+
+  service freeradius restart
 }
 
 function configureOpenvpn {
@@ -577,6 +604,7 @@ configureDatabase
 configureFirewall
 configureFwknop
 configureEasyrsa
+configureRadius
 configureOpenvpn
 installClientManagement
 installGatewayManagement
