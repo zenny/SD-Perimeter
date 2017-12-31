@@ -142,6 +142,7 @@ function createWinBundle {
 function disableDbEntries {
     mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "update user set user_enable='no' where user_mail='$CN'"
     mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "delete from user_group where user_id = (select user_id from user where user_mail = '$CN')"
+    mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "delete from radusergroup where username = '$CN'"
     mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "insert into radusergroup (username,groupname,priority) VALUES ('$CN','disabled',1)"
 }
 
