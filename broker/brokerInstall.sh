@@ -384,9 +384,9 @@ function configureRadius {
     mysql -u $USER -p$PASS radius < /etc/freeradius/mods-config/sql/main/mysql/schema.sql
     mysql -u $USER -p$PASS radius -e "insert into nas (nasname,shortname,secret) values ('127.0.0.1','127.0.0.1','${RADSECRET}')"
   fi
-  sed -i "s@.*login \= .*@        login \= \"$USER\"@" /etc/freeradius/mods-enabled/sql
-  sed -i "s@.*password \= .*@        password \= \"$PASS\"@" /etc/freeradius/mods-enabled/sql
-  sed -i "s@.*read_clients \= .*@        read_clients \= yes@" /etc/freeradius/mods-enabled/sql
+  sed -i "s@.*login \= .*@\tlogin \= \"$USER\"@" /etc/freeradius/mods-enabled/sql
+  sed -i "s@.*password \= .*@\tpassword \= \"$PASS\"@" /etc/freeradius/mods-enabled/sql
+  sed -i "s@.*read_clients \= .*@\tread_clients \= yes@" /etc/freeradius/mods-enabled/sql
 
   service freeradius restart
 }
@@ -443,6 +443,11 @@ function configureOpenvpn {
   if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from gateway where gateway_ip='$GATEWAY_GATEWAY'"` -lt 1 ]; then
     mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into gateway (gateway_name,gateway_ip,gateway_proxy_port,gateway_start_date,gateway_end_date) values ('$BROKER_HOSTNAME', '$GATEWAY_GATEWAY','$SQUID_PORT',now(), now() + INTERVAL 50 year)"
   fi
+  ## Configure OpenVPN to use RADIUS
+  cp $DIR/openvpn/radiusplugin.cnf $OPENVPN_DIR/
+  sed -i "s@NAS\-Identifier\=.*@NAS\-Identifier\=$BROKER_HOSTNAME@" $OPENVPN_DIR/radiusplugin.cnf
+  sed -i "s@subnet\=.*@subnet\=$CLIENT_NETMASK@" $OPENVPN_DIR/radiusplugin.cnf
+  sed -i "s@.*sharedsecret\=.*@\tsharedsecret\=$RADSECRET@" $OPENVPN_DIR/radiusplugin.cnf
   ## Configure Services to start
   service openvpn stop
   systemctl disable openvpn
