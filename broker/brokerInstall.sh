@@ -195,8 +195,15 @@ function installPackages {
   apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xF1656F24C74CD1D8
   add-apt-repository 'deb [arch=amd64,i386,ppc64el] http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.2/ubuntu xenial main'
   export DEBIAN_FRONTEND="noninteractive"
+  ## Add Freeradius 3 repo for Ubuntu 16.04
+  if [ `grep DISTRIB_RELEASE /etc/lsb-release | cut -d'=' -f2` == "16.04" ]; then
+    add-apt-repository ppa:freeradius/stable-3.0 -y
+  fi
+  ## Run package install
   apt-get update
-  apt install -y mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix jq php-fpm php-mysql python3-mysqldb
+  apt install -y mariadb-server fwknop-server fwknop-client fwknop-apparmor-profile openvpn easy-rsa nginx squid zip unzip mutt redsocks postfix jq php-fpm php-mysql python3-mysqldb freeradius freeradius-utils openvpn-auth-radius
+  service freeradius start
+  apt-get install -y freeradius-mysql freeradius-ldap
 }
 
 ####Configure Mariadb Installation
