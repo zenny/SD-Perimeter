@@ -5,10 +5,10 @@ import MySQLdb
 HOST = "127.0.0.1"
 PORT = 3306
 USER = "sdpuser"
-PASS = "sdpdbpass"
+PASS = "sdppass"
 DB = "sdpdb"
 
-id, srchost, resource = input(">").split()
+id, srchost, resource = input("").split()
 try:
     db = MySQLdb.connect(host=(HOST),
         port=(PORT),
@@ -19,19 +19,17 @@ try:
 
     cursor.execute("""select user_id from squid_user_helper where log_remote_ip='%s'""" % (srchost) )
     username = cursor.fetchone()
-    username = username[0]
 
     if resource == 'all_users':
         permitted = 1
     else:
-        cursor.execute("""select count(*) from squid_rules_helper r, squid_group_helper u where r.resource_name='%s' and u.user='%s' and u.ugroup = r.ugroup_name""" % (resource, username) )
+        cursor.execute("""select count(*) from squid_rules_helper r, squid_group_helper u where r.resource_name='%s' and u.user='%s' and u.ugroup = r.ugroup_name""" % (resource, username[0]) )
         permitted = cursor.fetchone()
-        permitted = permitted[0]
 
-    if permitted > 0:
-        print(id + " OK user=" + username)
+    if permitted[0] > 0:
+        print(id + " OK user=" + username[0])
     else:
-        print(id + " ERR user=" + username)
+        print(id + " ERR user=" + username[0])
 except TypeError:
     print(id + " ERR user=")
 
