@@ -606,7 +606,8 @@ function createManagement {
   chmod +x /opt/sdp/scripts/manage_Resources.sh
   cp $DIR/scripts/rebuild_squid_config.sh /opt/sdp/scripts/
   chmod +x /opt/sdp/scripts/rebuild_squid_config.sh
-
+  cp $DIR/scripts/manage_usergroups.sh /opt/sdp/scripts/
+  chmod +x /opt/sdp/scripts/manage_usergroups.sh
 }
 
 ### Execute order
