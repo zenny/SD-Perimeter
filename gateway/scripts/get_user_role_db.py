@@ -5,10 +5,14 @@ import MySQLdb
 HOST = "127.0.0.1"
 PORT = 3306
 USER = "sdpuser"
-PASS = "sdppass"
+PASS = "dvuiim69"
 DB = "sdpdb"
 
-id, srchost, resource = input("").split()
+try:
+    id, srchost, resource = input("").split()
+except EOFError:
+    exit()
+
 try:
     db = MySQLdb.connect(host=(HOST),
         port=(PORT),
