@@ -77,13 +77,13 @@ do
   ))
   for name in "${RESOURCE_GROUP[@]}"
   do
-    if [ `grep -c ${name}_group $SQUID_ACL_CONF` -lt 1 ]; then
-      echo "acl ${name}_group external sdp_user_groups $name" >> $SQUID_ACL_CONF
+    if [ `grep -c ${resource}_group $SQUID_ACL_CONF` -lt 1 ]; then
+      echo "acl ${resource}_group external sdp_user_groups $resource" >> $SQUID_ACL_CONF
     fi
   done
   for name in "${RESOURCE_GROUP[@]}"
   do
-    echo "http_access allow ${resource}_domain ${resource}_port ${name}_group" >> $SQUID_ACCESS
+    echo "http_access allow ${resource}_domain ${resource}_port ${resource}_group" >> $SQUID_ACCESS
   done
   echo "http_access deny ${resource}_domain" >> $SQUID_ACCESS
 done
