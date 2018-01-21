@@ -6,15 +6,18 @@ import sys
 HOST = "127.0.0.1"
 PORT = 3306
 USER = "sdpuser"
-PASS = "sdpdbpass"
+PASS = "dvuiim69"
 DB = "sdpdb"
 
 while True:
-    line = sys.stdin.readline().strip()
-    arr = line.split()
-    id = arr[0]
-    srchost = arr[1]
-    resource = arr[2]
+    try:
+        line = sys.stdin.readline().strip()
+        arr = line.split()
+        id = arr[0]
+        srchost = arr[1]
+        resource = arr[2]
+    except IndexError:
+        break
 
     db = MySQLdb.connect(host=(HOST),
         port=(PORT),
