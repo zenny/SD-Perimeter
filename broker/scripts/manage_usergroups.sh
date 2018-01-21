@@ -1,16 +1,11 @@
 #! /bin/bash
-# Script to automate creating new OpenVPN clients
-# The client cert and key, along with the CA cert is
-# zipped up and placed somewhere to download securely
-#
-# H Cooper - 05/02/11
-#
-# Usage: new-openvpn-client.sh <common-name>
 
 # Set where we're working from
 ## These will be installation specific
 DB_CONFIG=/opt/sdp/scripts/config.sh
 . $DB_CONFIG
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 function showGroups {
   echo
@@ -179,6 +174,7 @@ function optionsMenu {
            break
            ;;
          "Cancel")
+           bash $DIR/Manage_SDP.sh 
            break
            ;;
          *) echo invalid option;;

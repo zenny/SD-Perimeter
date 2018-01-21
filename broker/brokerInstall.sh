@@ -386,6 +386,7 @@ function configureRadius {
     mysql -u $USER -p$PASS radius -e "insert into nas (nasname,shortname,secret) values ('127.0.0.1','127.0.0.1','${RADSECRET}')"
     mysql -u $USER -p$PASS radius -e "insert into radgroupreply (groupname, attribute, op, value) values ('all_users','acct-interim-interval',':=','600')"
     mysql -u $USER -p$PASS radius -e "insert into radgroupreply (groupname, attribute, op, value) values ('all_users','Fall-Through','=','Yes')"
+    mysql -u $USER -p$PASS radius < $DIR/mariadbconf/sampledataradius.sql
   fi
   sed -i "s@\tsecret \= .*@\tsecret \= $RADSECRET@" /etc/freeradius/clients.conf
   sed -i "s@.*driver \= .*@\tdriver \= \"rlm_sql_mysql\"@" /etc/freeradius/mods-enabled/sql
@@ -414,7 +415,6 @@ function configureOpenvpn {
   chmod +x $OPENVPN_DIR/scripts/*.sh
   mkdir -p $OPENVPN_DIR/client
   touch $OPENVPN_DIR/client_vpn-status.log
-  touch $OPENVPN_DIR/client_vpn_ipp.txt
   cp $DIR/openvpn/client_vpn.conf $OPENVPN_DIR/
   touch $OPENVPN_DIR/gateway_vpn-status.log
   cp $DIR/openvpn/gateway_vpn.conf $OPENVPN_DIR/

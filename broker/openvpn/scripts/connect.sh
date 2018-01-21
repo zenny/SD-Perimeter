@@ -7,7 +7,10 @@ TMPFILE=$1
 IPQuery=$(mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -Nse "select distinct(address_domain) from squid_rules_helper where resource_type = 'tcp' and ugroup_name in (select g.ugroup_name from ugroup g, user_group ug, user u where g.ugroup_id = ug.ugroup_id and ug.user_id = u.user_id and user_mail = '$common_name')")
 
 touch $TMPFILE
-echo "" > $TMPFILE
+echo "push \"dhcp-option DNS 8.8.8.8\"" > $TMPFILE
+echo "push \"dhcp-option PROXY_HTTP $CLIENT_GATEWAY 3128\"" >> $TMPFILE
+echo "push \"dhcp-option PROXY_HTTPS $CLIENT_GATEWAY 3128\"" >> $TMPFILE
+echo "push \"dhcp-option PROXY_AUTO_CONFIG_URL http://${CLIENT_GATEWAY}/sdp_pac.php\"" >> $TMPFILE
 for value in $IPQuery
 do
   echo "push \"route $value 255.255.255.255\"" >> $TMPFILE
