@@ -13,7 +13,7 @@ function optionsMenu {
   # Prompt for an option
   PS3='Choose an Option to Continue: '
   options=("Manage Users" "Manage Groups" "Manage Gateways" "Manage Resources"
-          "Exit")
+          "Rebuild Squid Configuration" "Exit")
     select opt in "${options[@]}"
     do
       case $opt in
@@ -26,19 +26,25 @@ function optionsMenu {
            break
            ;;
          "Manage Gateways")
-           optionsMenu
+           bash $SCRIPTS_DIR/manage_gateways.sh
            break
            ;;
          "Manage Resources")
-           optionsMenu
+           bash $SCRIPTS_DIR/list_resources.sh
+           bash $SCRIPTS_DIR/manage_Resources.sh
+           break
+           ;;
+         "Rebuild Squid Configuration")
+           bash $SCRIPTS_DIR/rebuild_squid_config.sh
            break
            ;;
          "Exit")
-           break
+           exit
            ;;
          *) echo invalid option;;
        esac
     done
+  optionsMenu
 }
 
 optionsMenu

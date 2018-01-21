@@ -172,7 +172,6 @@ function optionsMenu {
            break
            ;;
          "Cancel")
-           bash $SCRIPTS_DIR/Manage_SDP.sh 
            break
            ;;
          *) echo invalid option;;

@@ -55,7 +55,7 @@ RESOURCE_NAMES=($(
 ## Write out squid configs for each resource
 for resource in "${RESOURCE_NAMES[@]}"
 do
-  RESOURCE_DOMAIN=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select resource_domain from sdp_resource where resource_name='$resource'"`
+  RESOURCE_DOMAIN=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select sra.address_domain from sdp_resource sr, sdp_resource_address sra where sr.resource_id = sra.resource_id and sr.resource_name='$resource'"`
   echo "acl ${resource}_domain dstdomain $RESOURCE_DOMAIN" >> $SQUID_ACL_CONF
   GATEWAY_ADDRESS=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select g.gateway_ip from gateway g, sdp_resource r, sdp_gateway_resource sgr where g.gateway_id=sgr.gateway_id and r.resource_id=sgr.resource_id and r.resource_name='$resource'"`
   if [ "$GATEWAY_ADDRESS" != "$GATEWAY_GATEWAY" ]; then
@@ -63,7 +63,7 @@ do
     echo "never_direct allow ${resource}_domain" >> $SQUID_CACHE_ACCESS
   fi
   RESOURCE_PORT=($(
-      for i in `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select p.port_number from sdp_port p, sdp_resource r, sdp_resource_port srp  where p.port_id=srp.port_id and r.resource_id=srp.resource_id and r.resource_name='$resource'"`
+      for i in `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select srp.port_number from sdp_resource r, sdp_resource_port srp  where r.resource_id=srp.resource_id and r.resource_name='$resource'"`
       do
         echo $i
       done
