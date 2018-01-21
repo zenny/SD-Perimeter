@@ -38,6 +38,8 @@ function addGroup {
   groupDescription=${groupDescription:-$groupName}
   mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into ugroup (ugroup_name,ugroup_description,
         ugroup_enabled) values ('$groupName','$groupDescription','yes')"
+  mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "insert into radgroupreply (groupname,attribute,op,value) 
+        values ('$groupName','Fall-Through','=','Yes')"
   echo "Group \"$groupName\" added"
   optionsMenu
 }
@@ -46,6 +48,8 @@ function deleteGroup {
   echo
   read -p "Enter the name of the group to delete: " groupName
   mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "delete from ugroup where ugroup_name = '$groupName'"
+  mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "delete from radgroupreply where groupname = '$groupName'"
+  mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "delete from radusergroup where groupname = '$groupName'"
   echo "Group \"$groupName\" has been deleted"
   optionsMenu
 }
@@ -83,6 +87,8 @@ function addGroupMember {
       mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into user_group (user_id, ugroup_id)
         values ((select user_id from user where user_mail = '$user'),
         (select ugroup_id from ugroup where ugroup_name = '$groupName'))"
+      mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "insert into radusergroup (username, groupname, priority)
+        values ('$user','$groupName',1)"
       echo "User \"$user\" succesfully added to \"$groupName\" group."
     else
       echo "User \"$user\" does not exist, skipping."
@@ -124,6 +130,8 @@ function deleteGroupMember {
       mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "delete from user_group where user_id = 
         (select user_id from user where user_mail = '$user')
         and ugroup_id = (select ugroup_id from ugroup where ugroup_name = '$groupName')"
+      mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "delete from radusergroup where username = '$user'
+        and groupname = '$groupName'"
       echo "User \"$user\" succesfully deleted from \"$groupName\" group."
     else
       echo "User \"$user\" does not exist, skipping."

@@ -21,7 +21,7 @@ try:
     username = cursor.fetchone()
 
     if resource == 'all_users':
-        permitted = 1
+        permitted = [1]
     else:
         cursor.execute("""select count(*) from squid_rules_helper r, squid_group_helper u where r.resource_name='%s' and u.user='%s' and u.ugroup = r.ugroup_name""" % (resource, username[0]) )
         permitted = cursor.fetchone()

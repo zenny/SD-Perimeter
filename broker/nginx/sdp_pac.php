@@ -3,7 +3,7 @@ header("Content-type: application/x-ns-proxy-autoconfig");
 header("Cache-Control: no-cache, must-revalidate");
 header("Expires: Sat, 26 Jul 1997 05:00:00 GMT");
 
-$servername = "localhost";
+$servername = "127.0.0.1";
 $username = "sdpuser";
 $password = "sdpdbpass";
 $dbname = "sdpdb";
@@ -22,7 +22,7 @@ $pac_user_result = $conn->query($query_user);
 $pac_user = $pac_user_result->fetch_assoc(); 
 $pac_user_name = $pac_user['user_id'];
 
-$query_domains = "SELECT GROUP_CONCAT(CONCAT('dnsDomainIs(host,\"',r.address_domain,'\")') SEPARATOR ' ||\n        ') domains FROM squid_rules_helper r, squid_group_helper u WHERE u.user='$pac_user_name' and u.ugroup = r.ugroup_name";
+$query_domains = "SELECT GROUP_CONCAT(CONCAT('dnsDomainIs(host,\"',r.address_domain,'\")') SEPARATOR ' ||\n        ') domains FROM squid_rules_helper r, squid_group_helper u WHERE u.user='$pac_user_name' and r.resource_type = 'web 'and u.ugroup = r.ugroup_name";
 $query_proxy = "SELECT gateway_ip from gateway where gateway_name='sdp-broker'";
 
 $pac_domains_result = $conn->query($query_domains);

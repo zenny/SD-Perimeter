@@ -96,10 +96,12 @@ function insertDB {
   if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from sdp_resource where resource_name='$RESOURCE_NAME' and resource_type='$RESOURCE_TYPE'"` -lt 1 ]; then
     mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource (resource_name, resource_type, resource_enabled, resource_start_date, resource_end_date) values ('$RESOURCE_NAME','$RESOURCE_TYPE','yes',now(),now() + INTERVAL 50 year)"
   fi
+
   ##Insert Domains
   if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from sdp_resource_address where resource_id = (select resource_id from sdp_resource where resource_name='$RESOURCE_NAME')"` -lt 1 ]; then
     mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource_address (address_name, address_domain, resource_id) values ('$RESOURCE_DOMAIN','$RESOURCE_DOMAIN',(select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'))"
   fi
+
   ##Insert Groups
   for name in "${RESOURCE_GROUP[@]}"
   do
@@ -108,6 +110,7 @@ function insertDB {
     fi
     mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource_group (resource_id,ugroup_id) values ((select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'),(select ugroup_id from ugroup where ugroup_name='$name'))"
   done
+
   ##Insert Ports
   for number in "${RESOURCE_PORT[@]}"
   do
@@ -115,12 +118,21 @@ function insertDB {
       mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource_port (port_name,port_number,port_protocol,resource_id) values ('$number','$number','tcp',(select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'))"
     fi
   done
+
   ##Gateway Association
   if [ "$GATEWAY_ADDRESS" != "DIRECT" ]; then
     mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_gateway_resource (gateway_id,resource_id) values ((select gateway_id from gateway where gateway_ip='$GATEWAY_ADDRESS'),(select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'))"
   else
     mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_gateway_resource (gateway_id,resource_id) values ((select gateway_id from gateway where gateway_ip='$GATEWAY_GATEWAY'),(select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'))"
   fi
+
+  ###RADIUS route rules for tcp resources
+  #if [ $RESOURCE_TYPE == "tcp" ]; then
+  #  for name in "${RESOURCE_GROUP[@]}"
+  #  do
+  #    mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "insert into radgroupreply (groupname, attribute, op, value) values ('$name','Framed-Route','+=','${RESOURCE_DOMAIN}/32 ${CLIENT_GATEWAY}/32  1')"
+  #  done
+  #fi
 }
 
 function writeSquid {
@@ -155,16 +167,18 @@ function writeSquid {
   ##  done
   ##fi
 
-  if [ $RESOURCE_TYPE == 'tcp' ]; then
-    if [ ! -e "$OPENVPN_CLIENT_FOLDER/DEFAULT" ]; then
-      touch $OPENVPN_CLIENT_FOLDER/DEFAULT
-    fi
-    echo "push \"route $RESOURCE_DOMAIN 255.255.255.255\"" >> $OPENVPN_CLIENT_FOLDER/DEFAULT
-  fi
+  #if [ $RESOURCE_TYPE == 'tcp' ]; then
+  #  if [ ! -e "$OPENVPN_CLIENT_FOLDER/DEFAULT" ]; then
+  #    touch $OPENVPN_CLIENT_FOLDER/DEFAULT
+  #  fi
+  #  echo "push \"route $RESOURCE_DOMAIN 255.255.255.255\"" >> $OPENVPN_CLIENT_FOLDER/DEFAULT
+  #fi
 }
 
 function deleteResource {
+  RESOURCE_DOMAIN=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select sra.address_domain from sdp_resource_address sra, sdp_resource sr where sra.resource_id = sr.resource_id and sr.resource_name = '$RESOURCE_NAME'"`  
   mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "delete from sdp_resource where resource_name='$RESOURCE_NAME'"
+  #mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "delete from radgroupreply where value like '${RESOURCE_DOMAIN}%'"
   sed -i "/\ ${RESOURCE_NAME}_domain/d" $SQUID_ACL_CONF
   sed -i "/\ ${RESOURCE_NAME}_port/d" $SQUID_ACL_CONF
   sed -i "/\ ${RESOURCE_NAME}_group/d" $SQUID_ACL_CONF
