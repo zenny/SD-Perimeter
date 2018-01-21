@@ -139,7 +139,7 @@ function optionsMenu {
   # Prompt for an option
   PS3='Choose an Option to Continue: '
   options=("Show Groups" "Show Group Members" "Show User Memberships" "Create a Group"
-          "Delete a Group" "Add Group Members" "Remove Group Members" "Cancel")
+          "Delete a Group" "Add Group Members" "Remove Group Members" "Exit")
     select opt in "${options[@]}"
     do
       case $opt in
@@ -171,7 +171,7 @@ function optionsMenu {
            deleteGroupMember
            break
            ;;
-         "Cancel")
+         "Exit")
            break
            ;;
          *) echo invalid option;;

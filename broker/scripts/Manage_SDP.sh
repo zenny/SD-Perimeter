@@ -30,8 +30,7 @@ function optionsMenu {
            break
            ;;
          "Manage Resources")
-           bash $SCRIPTS_DIR/list_resources.sh
-           bash $SCRIPTS_DIR/manage_Resources.sh
+           bash $SCRIPTS_DIR/manage_resources.sh
            break
            ;;
          "Rebuild Squid Configuration")

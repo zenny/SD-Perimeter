@@ -160,48 +160,49 @@ function createDbEntries {
 }
 
 # Check the CN doesn't already exist
-if [ -f $OPENVPN_KEYS/$CN.crt ]
-        then echo "Certificate with the CN $CN alread exists!"
-                PS3='Choose an Option to Continue: '
-                options=("Resend Configuration" "Revoke cert and resend Configuration" "Disable User" "Cancel")
-                select opt in "${options[@]}"
-                do
-                    case $opt in
-                        "Resend Configuration")
-                            echo "Resending Configuration now"
-		            createOvpn
-		            createWinBundle
-                            enableDbEntries
-		            emailCert
-		            break
-                            ;;
-                        "Revoke cert and resend Configuration")
-                            echo "Creating and sending a new Configuration"
-		            revokeCert
-		            createCert
-		            createOvpn
-		            createWinBundle
-                            enableDbEntries
-		            emailCert
-		            break
-                            ;;
-                        "Disable User")
-                            echo "Disabling User"
-                            revokeCert
-                            disableDbEntries
-                            break
-                            ;;
-                        "Cancel")
-                            exit
-                            ;;
-                        *) echo invalid option;;
-                    esac
-                done
-        exit
+if [ -f $OPENVPN_KEYS/$CN.crt ]; then
+  echo "Certificate with the CN $CN alread exists!"
+  PS3='Choose an Option to Continue: '
+  options=("Resend Configuration" "Revoke cert and resend Configuration"
+      "Disable User" "Exit")
+    select opt in "${options[@]}"
+      do
+        case $opt in
+          "Resend Configuration")
+            echo "Resending Configuration now"
+            createOvpn
+            createWinBundle
+            enableDbEntries
+            emailCert
+            break
+            ;;
+          "Revoke cert and resend Configuration")
+            echo "Creating and sending a new Configuration"
+            revokeCert
+            createCert
+            createOvpn
+            createWinBundle
+            enableDbEntries
+            emailCert
+            break
+            ;;
+          "Disable User")
+            echo "Disabling User"
+            revokeCert
+            disableDbEntries
+            break
+            ;;
+          "Exit")
+            exit
+            ;;
+          *) echo invalid option;;
+        esac
+      done
+    exit
 else
-        createCert
-        createOvpn
-	createWinBundle
-        createDbEntries
-	emailCert
+  createCert
+  createOvpn
+  createWinBundle
+  createDbEntries
+  emailCert
 fi

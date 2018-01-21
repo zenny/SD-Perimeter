@@ -260,53 +260,54 @@ function removeSquidPeer {
 }
 
 # Check the CN doesn't already exist
-if [ -f $OPENVPN_KEYS/$CN.crt ]
-        then echo "Certificate with the CN $CN alread exists!"
-                PS3='Choose an Option to Continue: '
-                options=("Rebuild Configuration" "Revoke cert and rebuild Configuration" "Disable Gateway" "Delete Gateway" "Cancel")
-                select opt in "${options[@]}"
-                do
-                    case $opt in
-                        "Rebuild Configuration")
-                            echo "Rebuilding Configuration now"
-		            createOvpn
-                            writeGatewayConfig
-                            enableDbEntries
-                            createSquidPeer
-		            break
-                            ;;
-                        "Revoke cert and rebuild Configuration")
-                            echo "Revoking Cert and Rebuilding New Configuration"
-		            revokeCert
-		            createCert
-		            createOvpn
-                            writeGatewayConfig
-                            enableDbEntries
-                            createSquidPeer
-		            break
-                            ;;
-                        "Disable Gateway")
-                            echo "Disabling Gateway"
-                            revokeCert
-                            disableDbEntries
-                            removeSquidPeer
-                            break
-                            ;;
-                        "Delete Gateway")
-                            echo "Deleting Gateway"
-                            revokeCert
-                            deleteSshKey
-                            disableDbEntries
-                            removeSquidPeer
-                            break
-                            ;;
-                        "Cancel")
-                            exit
-                            ;;
-                        *) echo invalid option;;
-                    esac
-                done
-        exit
+if [ -f $OPENVPN_KEYS/$CN.crt ]; then
+  echo "Certificate with the CN $CN alread exists!"
+  PS3='Choose an Option to Continue: '
+  options=("Rebuild Configuration" "Revoke cert and rebuild Configuration"
+        "Disable Gateway" "Delete Gateway" "Exit")
+    select opt in "${options[@]}"
+      do
+        case $opt in
+          "Rebuild Configuration")
+            echo "Rebuilding Configuration now"
+            createOvpn
+            writeGatewayConfig
+            enableDbEntries
+            createSquidPeer
+            break
+            ;;
+          "Revoke cert and rebuild Configuration")
+            echo "Revoking Cert and Rebuilding New Configuration"
+            revokeCert
+            createCert
+            createOvpn
+            writeGatewayConfig
+            enableDbEntries
+            createSquidPeer
+            break
+            ;;
+          "Disable Gateway")
+            echo "Disabling Gateway"
+            revokeCert
+            disableDbEntries
+            removeSquidPeer
+            break
+            ;;
+          "Delete Gateway")
+            echo "Deleting Gateway"
+            revokeCert
+            deleteSshKey
+            disableDbEntries
+            removeSquidPeer
+            break
+            ;;
+          "Exit")
+            exit
+            ;;
+          *) echo invalid option;;
+        esac
+      done
+    exit
 else
         selectGwIP
         createSshKey

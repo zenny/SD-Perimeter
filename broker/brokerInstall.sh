@@ -602,10 +602,8 @@ function createManagement {
     chown sdpmanagement:sdpmanagement -R $SDP_MANAGE_HOME
   fi
   ##Put management Scripts in place
-  cp $DIR/scripts/list_resources.sh /opt/sdp/scripts/
-  chmod +x $SCRIPTS_DIR/list_resources.sh
-  cp $DIR/scripts/manage_Resources.sh /opt/sdp/scripts/
-  chmod +x $SCRIPTS_DIR/manage_Resources.sh
+  cp $DIR/scripts/manage_resources.sh /opt/sdp/scripts/
+  chmod +x $SCRIPTS_DIR/manage_resources.sh
   cp $DIR/scripts/rebuild_squid_config.sh /opt/sdp/scripts/
   chmod +x $SCRIPTS_DIR/rebuild_squid_config.sh
   cp $DIR/scripts/manage_usergroups.sh /opt/sdp/scripts/
