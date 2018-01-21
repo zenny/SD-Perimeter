@@ -20,6 +20,7 @@ function infoGather {
     GATEWAY_BASE_CONFIG=$OPENVPN_DIR/gateway-configs/gatewaybase.conf
     GATEWAY_OUTPUT_DIR=/home/sdpmanagement
     OPENVPN_CLIENT_BASE=$OPENVPN_CLIENT_FOLDER/sdp-base
+    SCRIPTS_DIR=/opt/sdp/scripts
     touch $DB_CONFIG
     chmod +x $DB_CONFIG
     mkdir -p $OPENVPN_CLIENT_FOLDER
@@ -136,6 +137,7 @@ function writeConfig {
   echo "" >> $DB_CONFIG
   echo "####Directories" >> $DB_CONFIG
   echo "OPENVPN_DIR=/etc/openvpn" >> $DB_CONFIG
+  echo "SCRIPTS_DIR=/opt/sdp/scripts" >> $DB_CONFIG
   echo "DB_CONFIG=/opt/sdp/scripts/config.sh" >> $DB_CONFIG
   echo "OPENVPN_CLIENT_FOLDER=\$OPENVPN_DIR/client" >> $DB_CONFIG
   echo "OUTPUT_DIR=\$OPENVPN_DIR/client-configs/files" >> $DB_CONFIG
@@ -601,16 +603,18 @@ function createManagement {
   fi
   ##Put management Scripts in place
   cp $DIR/scripts/list_resources.sh /opt/sdp/scripts/
-  chmod +x /opt/sdp/scripts/list_resources.sh
+  chmod +x $SCRIPTS_DIR/list_resources.sh
   cp $DIR/scripts/manage_Resources.sh /opt/sdp/scripts/
-  chmod +x /opt/sdp/scripts/manage_Resources.sh
+  chmod +x $SCRIPTS_DIR/manage_Resources.sh
   cp $DIR/scripts/rebuild_squid_config.sh /opt/sdp/scripts/
-  chmod +x /opt/sdp/scripts/rebuild_squid_config.sh
+  chmod +x $SCRIPTS_DIR/rebuild_squid_config.sh
   cp $DIR/scripts/manage_usergroups.sh /opt/sdp/scripts/
-  chmod +x /opt/sdp/scripts/manage_usergroups.sh
+  chmod +x $SCRIPTS_DIR/manage_usergroups.sh
   cp $DIR/scripts/Manage_SDP.sh /opt/sdp/scripts/
-  chmod +x /opt/sdp/scripts/Manage_SDP.sh
-  ln -s /opt/sdp/scripts/Manage_SDP.sh /usr/bin/Manage_SDP
+  chmod +x $SCRIPTS_DIR/Manage_SDP.sh
+  if [ ! -e /usr/bin/Manage_SDP ]; then
+    ln -s $SCRIPTS_DIR/Manage_SDP.sh /usr/bin/Manage_SDP
+  fi
 }
 
 ### Execute order

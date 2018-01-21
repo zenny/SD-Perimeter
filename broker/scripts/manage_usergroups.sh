@@ -5,8 +5,6 @@
 DB_CONFIG=/opt/sdp/scripts/config.sh
 . $DB_CONFIG
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
 function showGroups {
   echo
   mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "select ugroup_name 'Group', ugroup_description Description from ugroup where ugroup_enabled = 'yes' order by ugroup_name"
@@ -174,7 +172,7 @@ function optionsMenu {
            break
            ;;
          "Cancel")
-           bash $DIR/Manage_SDP.sh 
+           bash $SCRIPTS_DIR/Manage_SDP.sh 
            break
            ;;
          *) echo invalid option;;

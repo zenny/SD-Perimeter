@@ -5,8 +5,6 @@
 DB_CONFIG=/opt/sdp/scripts/config.sh
 . $DB_CONFIG
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
 function optionsMenu {
   echo
   echo "**************************"
@@ -20,11 +18,11 @@ function optionsMenu {
     do
       case $opt in
         "Manage Users")
-           bash $DIR/manage_clients.sh
+           bash $SCRIPTS_DIR/manage_clients.sh
            break
            ;;
          "Manage Groups")
-           bash $DIR/manage_usergroups.sh
+           bash $SCRIPTS_DIR/manage_usergroups.sh
            break
            ;;
          "Manage Gateways")

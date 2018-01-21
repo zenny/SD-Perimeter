@@ -22,3 +22,6 @@ rm -f /etc/redsocks.conf*
 
 userdel sdpmanagement
 rm -rf /home/sdpmanagement
+
+rm -f /usr/bin/Manage_SDP
+rm -rf $SCRIPTS_DIR
