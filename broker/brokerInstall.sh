@@ -610,6 +610,7 @@ function createManagement {
   chmod +x /opt/sdp/scripts/manage_usergroups.sh
   cp $DIR/scripts/Manage_SDP.sh /opt/sdp/scripts/
   chmod +x /opt/sdp/scripts/Manage_SDP.sh
+  ln -s /opt/sdp/scripts/Manage_SDP.sh /usr/bin/Manage_SDP
 }
 
 ### Execute order
