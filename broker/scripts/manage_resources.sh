@@ -75,42 +75,46 @@ function resourcePorts {
     echo
     echo "You must choose at least one port!"
     resourcePorts
-  fi
-  if [ "$newPort" -lt 1 ] || [ "$newPort" -gt 65535 ]; then
+  elif [ "$newPort" -lt 1 ] || [ "$newPort" -gt 65535 ]; then
     echo
     echo "You must choose a valid port number! [1-65535] "
     resourcePorts
+  else
+    RESOURCE_PORT+=("$newPort")
+    unset newPort
+    read -r -p "Would you you like to add another port? [Y/n] " addPort
+    case "$addPort" in
+      [yY][eE][sS]|[yY]) 
+          resourcePorts
+          ;;
+      *)
+          echo ""
+          ;;
+    esac
   fi
-  RESOURCE_PORT+=("$newPort")
-  unset newPort
-  read -r -p "Would you you like to add another port? [Y/n] " addPort
-  case "$addPort" in
-    [yY][eE][sS]|[yY]) 
-        resourcePorts
-        ;;
-    *)
-        echo ""
-        ;;
-  esac
 }
 
 function resourceGroups {
   echo
-  read -p "Enter a new group for this resource? " newGroup
-  RESOURCE_GROUP+=("$newGroup")
-  unset newGroup
-  read -r -p "Would you you like to add another group? [Y/n] " addGroup
-  case "$addGroup" in
-    [yY][eE][sS]|[yY])
+  read -p "Enter a new group for this resource (Blank for \"all_users\"): " newGroup
+  if [ "$newGroup" != "" ]; then
+    RESOURCE_GROUP+=("$newGroup")
+    unset newGroup
+  fi
+  if [ `echo ${#RESOURCE_GROUP[@]}` -eq 0 ]; then
+    RESOURCE_GROUP+=("all_users")
+  else
+    read -r -p "Would you you like to add another group? [Y/n] " addGroup
+    case "$addGroup" in
+      [yY][eE][sS]|[yY])
         resourceGroups
         ;;
-    *)
+      *)
         echo ""
         ;;
-  esac
-  if [ `echo ${#RESOURCE_GROUP[@]}` -eq 0  ]; then
-    RESOURCE_GROUP+=("all_users")
+    esac
   fi
+  echo
 }
 
 function insertDB {
@@ -204,7 +208,8 @@ function defineResource {
   resourcePorts
   resourceGroups
 
-  echo "Resource Definition:"
+  echo
+  echo "RESOURCE DEFINITION:"
   echo
   echo "Resource Name = $RESOURCE_NAME"
   echo "Resource Type = $RESOURCE_TYPE"
@@ -222,28 +227,47 @@ function addResource {
 function addResourceStart {
   read -p "Enter a name for the resource to add: " RESOURCE_NAME
   echo
-  checkResource
-  if [ "$RESOURCE_EXISTS" -gt 0 ]; then
-    read -r -p "\"$RESOURCE_NAME\" already exists. Would you like to update instead? [Y/n] " response
-    case "$response" in
-      [yY][eE][sS]|[yY])
-        updateResource
-        ;;
-      *)
-        echo ""
-        ;;
-    esac
+  pattern=" |'"
+  if [[ $RESOURCE_NAME =~ $pattern ]]; then
+    echo "**Resource names can not contain any spaces. Enter a new name.**"
+    echo
+    addResourceStart
   else
-    addResource
-  fi
+    checkResource
+    if [ "$RESOURCE_EXISTS" -gt 0 ]; then
+      read -r -p "\"$RESOURCE_NAME\" already exists. Would you like to update instead? [Y/n] " response
+      case "$response" in
+        [yY][eE][sS]|[yY])
+          updateResource
+          ;;
+        *)
+          echo ""
+          ;;
+      esac
+    else
+      addResource
+    fi
 
-  optionsMenu
+    optionsMenu
+  fi
 }
 
 function updateResource {
+  echo "Current definition of \"$RESOURCE_NAME\":"
+  mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "
+        SELECT DISTINCT(resource_name) 'Resource Name',
+            address_domain 'Domain/IP',
+            resource_type 'Type',
+            GROUP_CONCAT(DISTINCT(port_number)) 'Port',
+            GROUP_CONCAT(DISTINCT(ugroup_name)) 'Groups'
+        FROM squid_rules_helper
+        WHERE resource_name = '$RESOURCE_NAME'
+        GROUP BY resource_name
+        ORDER BY 'Resource Name'"
+  echo
   echo "**Enter options to update \"$RESOURCE_NAME\"**"
-  deleteResource
   defineResource
+  deleteResource
   insertDB
   writeSquid
 }
@@ -255,15 +279,22 @@ function updateResourceStart {
   if [ "$RESOURCE_EXISTS" -gt 0 ]; then
     updateResource
   else
-    read -r -p "\"$RESOURCE_NAME\" does not exist. Would you like to add instead? [Y/n] " response
-    case "$response" in
-      [yY][eE][sS]|[yY])
-        addResource
-        ;;
-      *)
-        echo ""
-        ;;
-    esac
+    pattern=" |'"
+    if [[ $RESOURCE_NAME =~ $pattern ]]; then
+      echo "**Resource names can not contain any spaces. Enter a new name.**"
+      echo
+      updateResourceStart
+    else
+      read -r -p "\"$RESOURCE_NAME\" does not exist. Would you like to add instead? [Y/n] " response
+      case "$response" in
+        [yY][eE][sS]|[yY])
+          addResource
+          ;;
+        *)
+          echo ""
+          ;;
+      esac
+    fi
   fi
 
   optionsMenu
@@ -302,7 +333,7 @@ function optionsMenu {
   # Prompt for an option
   PS3='Choose an Option to Continue: '
   options=("List Resources" "Add a Resource" "Update a Resource" "Delete a Resource"
-        "Exit")
+        "Rebuild Squid Configuration" "Exit")
     select opt in "${options[@]}"
     do
       case $opt in
@@ -322,12 +353,17 @@ function optionsMenu {
            deleteResourceStart
            break
            ;;
-         "Exit")
+         "Rebuild Squid Configuration")
+           bash $SCRIPTS_DIR/rebuild_squid_config.sh
            break
+           ;;
+         "Exit")
+           exit
            ;;
          *) echo invalid option;;
        esac
     done
+  optionsMenu
 }
 
 optionsMenu
