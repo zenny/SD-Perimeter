@@ -124,7 +124,10 @@ function insertDB {
   fi
 
   ##Insert Domains
-  if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from sdp_resource_address where resource_id = (select resource_id from sdp_resource where resource_name='$RESOURCE_NAME')"` -lt 1 ]; then
+  if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*)
+        from sdp_resource sr
+        inner join sdp_resource_address as sra on sr.resource_id = sra.resource_id 
+        where resource_name='$RESOURCE_NAME'"` -lt 1 ]; then
     mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource_address (address_name, address_domain, resource_id) values ('$RESOURCE_DOMAIN','$RESOURCE_DOMAIN',(select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'))"
   fi
 
@@ -140,7 +143,11 @@ function insertDB {
   ##Insert Ports
   for number in "${RESOURCE_PORT[@]}"
   do
-    if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from sdp_resource_port where port_number = '$number' and resource_id = (select resource_id from sdp_resource where resource_name='$RESOURCE_NAME')"` -lt 1 ]; then
+    if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) 
+        from sdp_resource sr
+        inner join sdp_resource_port as srp on sr.resource_id = srp.resource_id
+        where srp.port_number = '$number'
+        and sr.resource_name='$RESOURCE_NAME'"` -lt 1 ]; then
       mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource_port (port_name,port_number,port_protocol,resource_id) values ('$number','$number','tcp',(select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'))"
     fi
   done
@@ -226,30 +233,24 @@ function addResource {
 
 function addResourceStart {
   read -p "Enter a name for the resource to add: " RESOURCE_NAME
+  RESOURCE_NAME="$(tr " " "_" <<<$RESOURCE_NAME)"
   echo
-  pattern=" |'"
-  if [[ $RESOURCE_NAME =~ $pattern ]]; then
-    echo "**Resource names can not contain any spaces. Enter a new name.**"
-    echo
-    addResourceStart
+  checkResource
+  if [ "$RESOURCE_EXISTS" -gt 0 ]; then
+    read -r -p "\"$RESOURCE_NAME\" already exists. Would you like to update instead? [Y/n] " response
+    case "$response" in
+      [yY][eE][sS]|[yY])
+        updateResource
+        ;;
+      *)
+        echo ""
+        ;;
+    esac
   else
-    checkResource
-    if [ "$RESOURCE_EXISTS" -gt 0 ]; then
-      read -r -p "\"$RESOURCE_NAME\" already exists. Would you like to update instead? [Y/n] " response
-      case "$response" in
-        [yY][eE][sS]|[yY])
-          updateResource
-          ;;
-        *)
-          echo ""
-          ;;
-      esac
-    else
-      addResource
-    fi
-
-    optionsMenu
+    addResource
   fi
+
+  optionsMenu
 }
 
 function updateResource {
@@ -274,27 +275,21 @@ function updateResource {
 
 function updateResourceStart {
   read -p "Enter a name for the resource to update: " RESOURCE_NAME
+  RESOURCE_NAME="$(tr " " "_" <<<$RESOURCE_NAME)"
   echo
   checkResource
   if [ "$RESOURCE_EXISTS" -gt 0 ]; then
     updateResource
   else
-    pattern=" |'"
-    if [[ $RESOURCE_NAME =~ $pattern ]]; then
-      echo "**Resource names can not contain any spaces. Enter a new name.**"
-      echo
-      updateResourceStart
-    else
-      read -r -p "\"$RESOURCE_NAME\" does not exist. Would you like to add instead? [Y/n] " response
-      case "$response" in
-        [yY][eE][sS]|[yY])
-          addResource
-          ;;
-        *)
-          echo ""
-          ;;
-      esac
-    fi
+    read -r -p "\"$RESOURCE_NAME\" does not exist. Would you like to add instead? [Y/n] " response
+    case "$response" in
+      [yY][eE][sS]|[yY])
+        addResource
+        ;;
+      *)
+        echo ""
+        ;;
+    esac
   fi
 
   optionsMenu

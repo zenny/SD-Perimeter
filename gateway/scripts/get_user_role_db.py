@@ -33,7 +33,7 @@ while True:
         if resource == 'all_users':
             permitted = [1]
         else:
-            cursor.execute("""select count(*) from squid_rules_helper r, squid_group_helper u where r.resource_name='%s' and u.user='%s' and u.ugroup = r.ugroup_name""" % (resource, username[0]) )
+            cursor.execute("""select count(*) from squid_rules_helper r inner join squid_group_helper as u on u.ugroup = r.ugroup_name where r.resource_name='%s' and u.user='%s'""" % (resource, username[0]) )
             permitted = cursor.fetchone()
 
         if permitted[0] > 0:

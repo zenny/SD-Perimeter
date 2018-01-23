@@ -66,17 +66,17 @@ CREATE OR REPLACE VIEW `squid_user_helper` AS
     select `l`.`user_id` AS `user_id`,
         `l`.`log_remote_ip` AS `log_remote_ip`,
         substring_index(`l`.`user_id`,'@',-1) AS `domain`
-    from `log` `l`, `user` `u` 
+    from `log` `l`
+    inner join `user` as `u` on `u`.`user_mail`=`l`.`user_id`
     where `l`.`log_end_time` = '0000-00-00 00:00:00'
-    and `u`.`user_enable`='yes'
-    and `u`.`user_mail`=`l`.`user_id`;
+    and `u`.`user_enable`='yes';
 
 CREATE OR REPLACE VIEW `squid_group_helper` AS 
     select `u`.`user_mail` as `user`,
         `g`.`ugroup_name` as `ugroup`
-    from `user` `u`, `ugroup` `g`, `user_group` `ug`
-    where `u`.`user_id` = `ug`.`user_id` 
-    and `g`.`ugroup_id` = `ug`.`ugroup_id`;
+    from `user` `u`
+    inner join `user_group` as `ug` on `u`.`user_id` = `ug`.`user_id`
+    inner join `ugroup` as `g` on `g`.`ugroup_id` = `ug`.`ugroup_id`;
 
 CREATE TABLE IF NOT EXISTS `gateway` (
     `gateway_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -185,11 +185,9 @@ CREATE OR REPLACE VIEW `resource_gateway_helper` AS
     select `r`.`resource_name`,
         `g`.`gateway_name`,
         `g`.`gateway_ip`
-    from `sdp_resource` `r`,
-        `gateway` `g`,
-        `sdp_gateway_resource` `sgr`
-    where `r`.`resource_id` = `sgr`.`resource_id`
-    and `g`.`gateway_id` = `sgr`.`gateway_id`;
+    from `sdp_resource` `r`
+    inner join `sdp_gateway_resource` as `sgr` on `r`.`resource_id` = `sgr`.`resource_id`
+    inner join `gateway` as `g` on `g`.`gateway_id` = `sgr`.`gateway_id`;
 
 CREATE OR REPLACE VIEW `squid_rules_helper` AS
     select `r`.`resource_name`,
@@ -198,15 +196,11 @@ CREATE OR REPLACE VIEW `squid_rules_helper` AS
         `srp`.`port_name`,
         `srp`.`port_number`,
         `g`.`ugroup_name`
-    from `sdp_resource` `r`,
-        `sdp_resource_address` `sra`,
-        `sdp_resource_port` `srp`,
-        `ugroup` `g`,
-        `sdp_resource_group` `srg`
-    where `r`.`resource_id` = `srg`.`resource_id`
-    and `r`.`resource_id` = `sra`.`resource_id`
-    and `r`.`resource_id` = `srp`.`resource_id`
-    and `g`.`ugroup_id` = `srg`.`ugroup_id`;
+    from `sdp_resource` `r`
+    inner join `sdp_resource_address` as `sra` on `r`.`resource_id` = `sra`.`resource_id`
+    inner join `sdp_resource_port` as `srp` on `r`.`resource_id` = `srp`.`resource_id`
+    inner join `sdp_resource_group` as `srg` on `r`.`resource_id` = `srg`.`resource_id`
+    inner join `ugroup` as `g` on `g`.`ugroup_id` = `srg`.`ugroup_id`;
 
 CREATE OR REPLACE VIEW `resource_rules_helper` AS
     select `r`.`resource_name`,
@@ -216,17 +210,12 @@ CREATE OR REPLACE VIEW `resource_rules_helper` AS
         GROUP_CONCAT(DISTINCT `gr`.`ugroup_name` SEPARATOR ' ') groups,
         `g`.`gateway_name`,
         `g`.`gateway_ip`
-    from `sdp_resource` `r`,
-        `sdp_resource_address` `sra`,
-        `ugroup` `gr`,
-        `sdp_resource_group` `srg`,
-        `sdp_resource_port` `srp`,
-        `gateway` `g`,
-        `sdp_gateway_resource` `sgr`
-    where `r`.`resource_id` = `srg`.`resource_id`
-    and `r`.`resource_id` = `sra`.`resource_id`
-    and `r`.`resource_id` = `srp`.`resource_id`
-    and `gr`.`ugroup_id` = `srg`.`ugroup_id`
-    and `r`.`resource_id` = `sgr`.`resource_id`
-    and `g`.`gateway_id` = `sgr`.`gateway_id`
+    from `sdp_resource` `r`
+    inner join `sdp_resource_address` as `sra` on `r`.`resource_id` = `sra`.`resource_id`
+    inner join `sdp_resource_group` as `srg` on `r`.`resource_id` = `srg`.`resource_id`
+    inner join `sdp_resource_port` as `srp` on `r`.`resource_id` = `srp`.`resource_id`
+    inner join `sdp_gateway_resource` as `sgr` on `r`.`resource_id` = `sgr`.`resource_id`
+    inner join `ugroup` as `gr` on `gr`.`ugroup_id` = `srg`.`ugroup_id`
+    inner join `gateway` as `g` on `g`.`gateway_id` = `sgr`.`gateway_id`
     group by `r`.`resource_name`;
+

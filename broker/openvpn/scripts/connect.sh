@@ -4,7 +4,16 @@
 
 ##Dynamically find routes to push to client
 TMPFILE=$1
-IPQuery=$(mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -Nse "select distinct(address_domain) from squid_rules_helper where resource_type = 'tcp' and ugroup_name in (select g.ugroup_name from ugroup g, user_group ug, user u where g.ugroup_id = ug.ugroup_id and ug.user_id = u.user_id and user_mail = '$common_name')")
+IPQuery=$(mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -Nse "
+        select distinct(sra.address_domain) 
+        from sdp_resource_address sra
+        inner join sdp_resource as sr on sr.resource_id = sra.resource_id
+        inner join sdp_resource_group as srg on sr.resource_id = srg.resource_id
+        inner join ugroup as g on g.ugroup_id = srg.ugroup_id
+        inner join user_group as ug on g.ugroup_id = ug.ugroup_id 
+        inner join user u on ug.user_id = u.user_id
+        where sr.resource_type = 'tcp'
+        and u.user_mail = '$common_name'")
 
 touch $TMPFILE
 echo "push \"dhcp-option DNS 8.8.8.8\"" > $TMPFILE
