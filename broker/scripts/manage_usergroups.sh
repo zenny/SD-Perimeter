@@ -6,177 +6,328 @@ DB_CONFIG=/opt/sdp/scripts/config.sh
 . $DB_CONFIG
 
 function showGroups {
-  echo
-  mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "select ugroup_name 'Group', ugroup_description Description from ugroup where ugroup_enabled = 'yes' order by ugroup_name"
+  title="Show Existing Groups"
+  whiptail --textbox --title "$title" --scrolltext /dev/stdin 25 78 <<<"$(
+        echo 'Current Groups:\n\n'
+        mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e '
+            SELECT ugroup_name "Group",
+              ugroup_description Description
+            FROM ugroup
+            WHERE ugroup_enabled = "yes"
+            ORDER BY ugroup_name
+        ')"
   optionsMenu
 }
 
+function getActiveGroups {
+  activeGroups=$(mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe '
+      SELECT ugroup_name "Group" 
+      FROM ugroup
+      WHERE ugroup_enabled = "yes"
+      ORDER BY ugroup_name
+  ')
+  activeGroupsArr=()
+  for group in $activeGroups
+  do
+    activeGroupsArr+=("$group" "")
+  done
+}
+
 function showGroupMembership {
-  echo
-  read -p "Enter group name to show it's members: " groupName 
-  mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "select u.user_mail '\"$groupName\" Group Members' from user u, ugroup g, user_group ug where u.user_id = ug.user_id and g.ugroup_id = ug.ugroup_id and ugroup_name = '$groupName'"
+  title="Show Group Members"
+  getActiveGroups
+  groupName=$(
+    whiptail --title "$title" --menu "\nChoose a group to show it's members." \
+    25 78 16 "${activeGroupsArr[@]}" 3>&2 2>&1 1>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    userNames=$(
+        mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+            SELECT u.user_mail '\"$groupName\" Group Members'
+            FROM user u
+              INNER JOIN user_group AS ug ON u.user_id = ug.user_id
+              INNER JOIN ugroup AS g ON g.ugroup_id = ug.ugroup_id 
+            WHERE ugroup_name = '$groupName'"
+    )
+    userNameArr=()
+    for name in $userNames
+    do
+      userNameArr+=("$name")
+    done
+    whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+      25 78 <<<$(echo "Group Members:\n\n" "${userNameArr[@]}")
+  fi
+
   optionsMenu
 }
 
 function showUserGroups {
-  echo
-  read -p "Enter the username to show group memberships: " userName
-  mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "select g.ugroup_name 'Group Memberships for \"$userName\"' from user u, ugroup g, user_group ug where u.user_id = ug.user_id and g.ugroup_id = ug.ugroup_id and u.user_mail = '$userName'"
+  title="List an Existing User's Group Memberships"
+  userName=$(
+    whiptail --inputbox "\nEnter a username to show group memberships:" 8 78 \
+    --title "$title" 3>&1 1>&2 2>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    groupNames=$(
+        mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+            SELECT g.ugroup_name 'Group Memberships for \"$userName\"'
+            FROM user u
+              INNER JOIN user_group AS ug ON u.user_id = ug.user_id
+              INNER JOIN ugroup AS g ON g.ugroup_id = ug.ugroup_id
+            WHERE u.user_mail = '$userName'
+            ORDER BY g.ugroup_name"
+    )
+    groupNameArr=()
+    for group in $groupNames
+    do
+      groupNameArr+=("$group")
+    done
+    whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+      25 78 <<<$(echo "User's Groups:\n\n" "${groupNameArr[@]}")
+  fi
+
   optionsMenu
 }
+
 function addGroup {
-  echo
-  read -p "Enter the name of your new group: " groupName
-  read -p "Enter the group description (optional): " groupDescription
-  groupDescription=${groupDescription:-$groupName}
-  mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into ugroup (ugroup_name,ugroup_description,
-        ugroup_enabled) values ('$groupName','$groupDescription','yes')"
-  mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "insert into radgroupreply (groupname,attribute,op,value) 
-        values ('$groupName','Fall-Through','=','Yes')"
-  echo "Group \"$groupName\" added"
+  title="Add a New Group"
+  groupName=$(
+    whiptail --inputbox "\nEnter the name of your new group:" 8 78 \
+    --title "$title" 3>&1 1>&2 2>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    groupDescription=$(
+      whiptail --inputbox "\nEnter the group description (optional):" 8 78 \
+      --title "$title" 3>&1 1>&2 2>&3
+    )
+    exitstatus=$?
+
+    if [ $exitstatus = 0 ]; then
+      groupDescription=${groupDescription:-$groupName}
+      mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -se "
+            INSERT INTO ugroup (
+              ugroup_name,ugroup_description,ugroup_enabled
+            )
+            VALUES (
+              '$groupName','$groupDescription','yes'
+            )"
+      mysql -h$HOST -P$PORT -u$USER -p$PASS radius -se "
+            INSERT INTO radgroupreply (
+              groupname,attribute,op,value
+            ) 
+            VALUES (
+              '$groupName','Fall-Through','=','Yes'
+            )"
+      whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+        8 78 <<<$(echo "Group \"$groupName\" added.")
+    fi
+  fi
   optionsMenu
 }
 
 function deleteGroup {
-  echo
-  read -p "Enter the name of the group to delete: " groupName
-  mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "delete from ugroup where ugroup_name = '$groupName'"
-  mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "delete from radgroupreply where groupname = '$groupName'"
-  mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "delete from radusergroup where groupname = '$groupName'"
-  echo "Group \"$groupName\" has been deleted"
+  title="Remove an Existing Group"
+  getActiveGroups
+  groupName=$(
+    whiptail --title "$title" --menu "\nChoose the group to delete." \
+    25 78 16 "${activeGroupsArr[@]}" 3>&2 2>&1 1>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    if (whiptail --yesno "You are about to delete the group \"$groupName\". Continue?" \
+          --title "$title" 8 78) then
+      mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -se "
+            DELETE FROM ugroup 
+            WHERE ugroup_name = '$groupName'"
+      mysql -h$HOST -P$PORT -u$USER -p$PASS radius -se "
+            DELETE FROM radgroupreply
+            WHERE groupname = '$groupName'"
+      mysql -h$HOST -P$PORT -u$USER -p$PASS radius -se "
+            DELETE FROM radusergroup
+            WHERE groupname = '$groupName'"
+      whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+        8 78 <<<$(echo "Group \"$groupName\" deleted.")
+    fi
+  fi
   optionsMenu
 }
 
 function usersToAddFunc {
-  read -p "Enter a username to add to the \"$groupName\" group: " newUser
-  if [ -z "$newUser" ]; then
-    echo
-    echo "You must choose at least one user!"
-    usersToAddFunc
+  newUser=$(
+    whiptail --inputbox "\nEnter a username to add to the \"$groupName\" group:" 8 78 \
+    --title "$title" 3>&1 1>&2 2>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    if [ -z "$newUser" ]; then
+      whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+          8 78 <<<$(echo "You must choose at least one user!")
+      usersToAddFunc
+    fi
+    usersToAddArr+=("$newUser")
+    unset newUser
+
+    if (whiptail --yesno "Would you like to add another user to the \"$groupName\" group?" \
+          --title "$title" 8 78) then
+      usersToAddFunc
+    fi
   fi
-  usersToAddArr+=("$newUser")
-  unset newUser
-  read -r -p "Would you you like to add another user to the \"$groupName\" group? [Y/n] " addUser
-  case "$addUser" in
-    [yY][eE][sS]|[yY])
-        usersToAddFunc
-        ;;
-    *)
-        echo ""
-        ;;
-  esac
 }
 
 function addGroupMember {
-  echo
-  read -p "Enter the name of the group to add members to: " groupName
-  usersToAddArr=()
-  usersToAddFunc
-  for user in "${usersToAddArr[@]}"
-  do
-    userExists=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) 
-        from user where user_mail = '$user'"`
-    if [ $userExists != "0" ]; then
-      mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into user_group (user_id, ugroup_id)
-        values ((select user_id from user where user_mail = '$user'),
-        (select ugroup_id from ugroup where ugroup_name = '$groupName'))"
-      mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "insert into radusergroup (username, groupname, priority)
-        values ('$user','$groupName',1)"
-      echo "User \"$user\" succesfully added to \"$groupName\" group."
-    else
-      echo "User \"$user\" does not exist, skipping."
-    fi
-  done
+  title="Add Users to Existing Group"
+  getActiveGroups
+  groupName=$(
+    whiptail --title "$title" --menu "\nChoose the group to add members to." \
+    25 78 16 "${activeGroupsArr[@]}" 3>&2 2>&1 1>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    usersToAddArr=()
+    usersToAddFunc
+    for user in "${usersToAddArr[@]}"
+    do
+      userExists=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+            SELECT count(*) 
+            FROM user
+            WHERE user_mail = '$user'"`
+      if [ $userExists != "0" ]; then
+        mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -se "
+            INSERT INTO user_group (
+              user_id,
+              ugroup_id)
+            VALUES (
+              (SELECT user_id FROM user WHERE user_mail = '$user'),
+              (SELECT ugroup_id FROM ugroup WHERE ugroup_name = '$groupName')
+            )"
+        mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "
+            INSERT INTO radusergroup (
+              username, groupname, priority
+            )
+            VALUES (
+              '$user','$groupName',1
+            )"
+        whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+          8 78 <<<$(echo "User \"$user\" successfully add to \"$groupName\" group.")
+      else
+        whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+          8 78 <<<$(echo "User \"$user\" does not exist, skipping.")
+      fi
+    done
+  fi
   optionsMenu
 }
 
 function usersToDelFunc {
-  read -p "Enter a username to remove from the \"$groupName\" group: " newUser
-  if [ -z "$newUser" ]; then
-    echo
-    echo "You must choose at least one user!"
-    usersToDelFunc
+  newUser=$(
+  whiptail --inputbox "\nEnter a username to remove from the \"$groupName\" group:" 8 78 \
+    --title "$title" 3>&1 1>&2 2>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    if [ -z "$newUser" ]; then
+      whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+        8 78 <<<$(echo "You must choose at least one user!")
+      usersToDelFunc
+    fi
+    usersToDelArr+=("$newUser")
+    unset newUser
+    if (whiptail --yesno "Would you like to remove another user from the \"$groupName\" group?" \
+          --title "$title" 8 78) then
+      usersToDelFunc
+    fi
   fi
-  usersToDelArr+=("$newUser")
-  unset newUser
-  read -r -p "Would you you like to remove another user from the \"$groupName\" group? [Y/n] " delUser
-  case "$delUser" in
-    [yY][eE][sS]|[yY])
-        usersToDelFunc
-        ;;
-    *)
-        echo ""
-        ;;
-  esac
 }
 
 function deleteGroupMember {
-  echo
-  read -p "Enter the name of the group to remove members from: " groupName
-  usersToDelArr=()
-  usersToDelFunc
-  for user in "${usersToDelArr[@]}"
-  do
-    userExists=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) 
+  title="Remove Users from Existing Group"
+  getActiveGroups
+  groupName=$(
+    whiptail --title "$title" --menu "\nChoose the group to delete members from." \
+    25 78 16 "${activeGroupsArr[@]}" 3>&2 2>&1 1>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    usersToDelArr=()
+    usersToDelFunc
+    for user in "${usersToDelArr[@]}"
+    do
+      userExists=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) 
         from user where user_mail = '$user'"`
-    if [ $userExists != "0" ]; then
-      mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "delete from user_group where user_id = 
-        (select user_id from user where user_mail = '$user')
-        and ugroup_id = (select ugroup_id from ugroup where ugroup_name = '$groupName')"
-      mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "delete from radusergroup where username = '$user'
-        and groupname = '$groupName'"
-      echo "User \"$user\" succesfully deleted from \"$groupName\" group."
-    else
-      echo "User \"$user\" does not exist, skipping."
-    fi
-  done
+      if [ $userExists != "0" ]; then
+        mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "
+            DELETE FROM user_group 
+            WHERE user_id = (
+                SELECT user_id FROM user WHERE user_mail = '$user'
+            )
+            AND ugroup_id = (
+                SELECT ugroup_id FROM ugroup WHERE ugroup_name = '$groupName'
+            )"
+        mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "
+            DELETE FROM radusergroup 
+            WHERE username = '$user'
+            AND groupname = '$groupName'"
+        whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+          8 78 <<<$(echo "User \"$user\" successfully deleted from \"$groupName\" group.")
+      else
+        whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+          8 78 <<<$(echo "User \"$user\" does not exist, skipping.")
+      fi
+    done
+  fi
   optionsMenu
 }
 
 function optionsMenu {
-  echo
-  echo "GROUP MANAGEMENT OPTIONS"
-  # Prompt for an option
-  PS3='Choose an Option to Continue: '
-  options=("Show Groups" "Show Group Members" "Show User Memberships" "Create a Group"
-          "Delete a Group" "Add Group Members" "Remove Group Members" "Exit")
-    select opt in "${options[@]}"
-    do
-      case $opt in
-        "Show Groups")
-	   showGroups
-           break
-           ;;
-         "Show Group Members")
-	   showGroupMembership
-           break
-           ;;
-         "Show User Memberships")
-           showUserGroups
-           break
-           ;;
-         "Create a Group")
-           addGroup
-           break
-           ;;
-         "Delete a Group")
-           deleteGroup
-           break
-           ;;
-         "Add Group Members")
-           addGroupMember
-           break
-           ;;
-         "Remove Group Members")
-           deleteGroupMember
-           break
-           ;;
-         "Exit")
-           break
-           ;;
-         *) echo invalid option;;
-       esac
-    done
+  opt=$(
+    whiptail --title "GROUP MANAGEMENT OPTIONS" --menu "\nChoose an item to continue:" \
+    25 78 16 \
+    "Show Groups" "Show a list of existing groups." \
+    "Show Group Members" "Show a list of users in an existing group." \
+    "Show User Memberships" "List an existing users group membersips." \
+    "Create a Group" "Add a new group." \
+    "Delete a Group" "Remove an existing group." \
+    "Add Group Members" "Add users to an existing group." \
+    "Remove Group Members" "Remove users from an existing group." 3>&2 2>&1 1>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    case $opt in
+      "Show Groups")
+        showGroups
+        ;;
+      "Show Group Members")
+        showGroupMembership
+        ;;
+      "Show User Memberships")
+        showUserGroups
+        ;;
+      "Create a Group")
+        addGroup
+        ;;
+      "Delete a Group")
+        deleteGroup
+        ;;
+      "Add Group Members")
+        addGroupMember
+        ;;
+      "Remove Group Members")
+        deleteGroupMember
+        ;;
+    esac
+  fi
 }
 
 optionsMenu

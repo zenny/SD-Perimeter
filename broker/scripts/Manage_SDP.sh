@@ -6,40 +6,32 @@ DB_CONFIG=/opt/sdp/scripts/config.sh
 . $DB_CONFIG
 
 function optionsMenu {
-  echo
-  echo "**************************"
-  echo "* SDP MANAGEMENT OPTIONS *"
-  echo "**************************"
-  # Prompt for an option
-  PS3='Choose an Option to Continue: '
-  options=("Manage Users" "Manage Groups" "Manage Gateways" "Manage Resources"
-          "Exit")
-    select opt in "${options[@]}"
-    do
-      case $opt in
-        "Manage Users")
-           bash $SCRIPTS_DIR/manage_clients.sh
-           break
-           ;;
-         "Manage Groups")
-           bash $SCRIPTS_DIR/manage_usergroups.sh
-           break
-           ;;
-         "Manage Gateways")
-           bash $SCRIPTS_DIR/manage_gateways.sh
-           break
-           ;;
-         "Manage Resources")
-           bash $SCRIPTS_DIR/manage_resources.sh
-           break
-           ;;
-         "Exit")
-           exit
-           ;;
-         *) echo invalid option;;
-       esac
-    done
-  optionsMenu
+  opt=$(
+    whiptail --title "SDP MANAGEMENT OPTIONS" --menu "\nChoose an item to manage:" 25 78 16 \
+    "Users" "Add, Delete and Modify Users." \
+    "Groups" "Add, Delete and Modify Groups." \
+    "Gateways" "Add, Delete and Modify Gateways." \
+    "Resources" "Add, Delete and Modify Resources." 3>&2 2>&1 1>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    case $opt in
+      "Users")
+        bash $SCRIPTS_DIR/manage_clients.sh
+        ;;
+      "Groups")
+        bash $SCRIPTS_DIR/manage_usergroups.sh
+        ;;
+      "Gateways")
+        bash $SCRIPTS_DIR/manage_gateways.sh
+        ;;
+      "Resources")
+        bash $SCRIPTS_DIR/manage_resources.sh
+        ;;
+    esac
+    optionsMenu
+  fi
 }
 
 optionsMenu
