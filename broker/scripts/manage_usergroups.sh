@@ -10,12 +10,12 @@ function showGroups {
   whiptail --textbox --title "$title" --scrolltext /dev/stdin 25 78 <<<"$(
         echo 'Current Groups:\n\n'
         mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e '
-            SELECT ugroup_name "Group",
-              ugroup_description Description
+            SELECT CONCAT(ugroup_name,";",ugroup_description) 
+              "<GROUP NAME>;<DESCRIPTION>"
             FROM ugroup
             WHERE ugroup_enabled = "yes"
             ORDER BY ugroup_name
-        ')"
+        ' | column -t -s ';' )"
   optionsMenu
 }
 

@@ -32,7 +32,9 @@ echo "acl sdp_clients src $CLIENT_NET" >> $SQUID_ACL_CLIENTS
 
 ## Rebuild Squid Cache Peer Files
 GATEWAY_IPS=($(
-    for i in `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select group_concat(gateway_ip separator ' ') from gateway where gateway_ip != '$GATEWAY_GATEWAY'"`
+    for i in `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+        SELECT GROUP_CONCAT(gateway_ip separator ' ') 
+        FROM gateway WHERE gateway_ip != '$GATEWAY_GATEWAY'"`
     do 
       echo $i
     done
@@ -46,7 +48,8 @@ done
 
 ## Get names of existing resources
 RESOURCE_NAMES=($(
-    for i in `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select resource_name from sdp_resource"`
+    for i in `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+        SELECT resource_name FROM sdp_resource"`
     do
       echo $i
     done
@@ -55,22 +58,40 @@ RESOURCE_NAMES=($(
 ## Write out squid configs for each resource
 for resource in "${RESOURCE_NAMES[@]}"
 do
-  RESOURCE_DOMAIN=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select sra.address_domain from sdp_resource sr, sdp_resource_address sra where sr.resource_id = sra.resource_id and sr.resource_name='$resource'"`
+  RESOURCE_DOMAIN=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+        SELECT sra.address_domain 
+        FROM sdp_resource sr
+          INNER JOIN sdp_resource_address AS sra ON sr.resource_id = sra.resource_id
+        WHERE sr.resource_name='$resource'"`
   echo "acl ${resource}_domain dstdomain $RESOURCE_DOMAIN" >> $SQUID_ACL_CONF
-  GATEWAY_ADDRESS=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select g.gateway_ip from gateway g, sdp_resource r, sdp_gateway_resource sgr where g.gateway_id=sgr.gateway_id and r.resource_id=sgr.resource_id and r.resource_name='$resource'"`
+  GATEWAY_ADDRESS=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+        SELECT g.gateway_ip
+        FROM gateway g
+          INNER JOIN sdp_gateway_resource AS sgr ON g.gateway_id=sgr.gateway_id
+          INNER JOIN sdp_resource AS r ON r.resource_id=sgr.resource_id
+        WHERE r.resource_name='$resource'"`
   if [ "$GATEWAY_ADDRESS" != "$GATEWAY_GATEWAY" ]; then
     echo "cache_peer_access $GATEWAY_ADDRESS allow ${resource}_domain" >> $SQUID_CACHE_ACCESS
     echo "never_direct allow ${resource}_domain" >> $SQUID_CACHE_ACCESS
   fi
   RESOURCE_PORT=($(
-      for i in `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select srp.port_number from sdp_resource r, sdp_resource_port srp  where r.resource_id=srp.resource_id and r.resource_name='$resource'"`
+      for i in `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+        SELECT srp.port_number 
+        FROM sdp_resource r
+          INNER JOIN sdp_resource_port AS srp ON r.resource_id=srp.resource_id
+        WHERE r.resource_name='$resource'"`
       do
         echo $i
       done
   ))
   echo "acl ${resource}_port port ${RESOURCE_PORT[@]}" >> $SQUID_ACL_CONF
   RESOURCE_GROUP=($(
-      for i in `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select g.ugroup_name from ugroup g, sdp_resource r, sdp_resource_group srg  where g.ugroup_id=srg.ugroup_id and r.resource_id=srg.resource_id and r.resource_name='$resource'"`
+      for i in `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+        SELECT g.ugroup_name
+        FROM ugroup g
+          INNER JOIN sdp_resource_group AS srg ON g.ugroup_id=srg.ugroup_id
+          INNER JOIN sdp_resource AS r ON r.resource_id=srg.resource_id
+        WHERE r.resource_name='$resource'"`
       do
         echo $i
       done

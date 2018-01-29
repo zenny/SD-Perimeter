@@ -15,155 +15,263 @@ SQUID_ACCESS="$SQUID_DIR_CONF/http_access.conf"
 SQUID_CACHE_ACCESS="$SQUID_DIR_CONF/never_direct.conf"
 
 function listResources {
-  echo
-  echo "CONFIGURED RESOURCES:"
-  mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "
-        SELECT DISTINCT(resource_name) 'Resource Name',
-            address_domain 'Domain/IP',
-            resource_type 'Type',
-            GROUP_CONCAT(DISTINCT(port_number)) 'Port',
-            GROUP_CONCAT(DISTINCT(ugroup_name)) 'Groups'
-        FROM squid_rules_helper
-        GROUP BY resource_name
-        ORDER BY 'Resource Name'"
-  echo
+  title="List Configured Resource"
+  whiptail --textbox --title "$title" --scrolltext /dev/stdin 25 78 <<<"$(
+        echo 'Configured Resources:\n\n'
+        mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e '
+            SELECT CONCAT(
+                  resource_name,";",
+                  address_domain,";",
+                  resource_type,";",
+                  GROUP_CONCAT(DISTINCT(port_number)),";",
+                  GROUP_CONCAT(DISTINCT(ugroup_name))
+            ) "<RESOURCE NAME>;<DOMAIN/IP>;<TYPE>;<PORT>;<GROUPS>"
+            FROM squid_rules_helper
+            GROUP BY resource_name
+            ORDER BY "Resource Name"
+        ' | column -t -s ';')"
   optionsMenu
 }
 
 function checkResource {
-  RESOURCE_EXISTS=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from sdp_resource where resource_name='$RESOURCE_NAME'"`
+  RESOURCE_EXISTS=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+        SELECT count(*)
+        FROM sdp_resource
+        WHERE resource_name='$RESOURCE_NAME'"`
+}
+
+function getActiveResources {
+  activeResources=$(mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe '
+        SELECT resource_name
+        FROM sdp_resource
+        WHERE resource_enabled = "yes"
+        ORDER BY resource_name
+  ')
+  activeResourcesArr=()
+  for resource in $activeResources
+  do
+    activeResourcesArr+=("$resource" "")
+  done
+}
+
+function getActiveGateways {
+  activeGateways=$(mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe '
+        SELECT gateway_ip,
+            gateway_name
+        FROM gateway
+        WHERE gateway_ip != "'$GATEWAY_GATEWAY'"
+  ')
+  activeGatewaysArr=("DIRECT" "(Broker will serve as Gateway)")
+  for gateway in $activeGateways
+  do
+    activeGatewaysArr+=("$gateway")
+  done
 }
 
 function resourceGateway {
-  echo
-  echo "Your available gateways are:"
-  mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -se "select gateway_name,gateway_ip from gateway where gateway_ip != '$GATEWAY_GATEWAY'"
-  echo
-  read -p "Enter the IP of the gateway that will be protecting this resource?  Enter DIRECT if this resource does not have a gateway: " GATEWAY_ADDRESS
-  if [ "$GATEWAY_ADDRESS" != "`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select gateway_ip from gateway where gateway_ip='$GATEWAY_ADDRESS'"`" ]; then
-    echo "Value entered does not exist, using DIRECT"
-    GATEWAY_ADDRESS="DIRECT"
-  fi
+  getActiveGateways
+  GATEWAY_ADDRESS=$(
+    whiptail --title "$title" --menu "\nChoose the gateway that will protect this resource." \
+    25 78 16 "${activeGatewaysArr[@]}" 3>&2 2>&1 1>&3
+  )
+  exitstatus=$?
 }
 
 function resourceType {
-  echo
-  read -r -p "Will this be a Web Resource or TCP Resource ['web/tcp'] " RESOURCE_TYPE
-  case "$RESOURCE_TYPE" in
-    [wW][eE][bB]|[wW]) 
-        RESOURCE_TYPE=web
-        ;;
-    [tT][cC][pP]|[tT])
-        RESOURCE_TYPE=tcp
-        ;;
-    *)
-        echo "You did not enter a value."
-        resourceType
-        ;;
-  esac
+  RESOURCE_TYPE=$(
+    whiptail --title "$title" --menu "\nWill this be a web resource or TCP resource?" \
+    25 78 16 "Web" "" "TCP" "" 3>&2 2>&1 1>&3
+  )
+  exitstatus=$?
 }
 
 function resourceDomain {
-  echo
-  read -p "What is the DOMAIN or IP of your resource? " RESOURCE_DOMAIN
+  RESOURCE_DOMAIN=$(whiptail --inputbox "\nWhat is the DOMAIN or IP of your resource?" \
+    8 78 --title "$title" 3>&1 1>&2 2>&3
+  )
+  exitstatus=$?
 }
 
 function resourcePorts {
-  echo
-  read -p "Enter a new port for this resource? " newPort
-  if [ -z "$newPort" ]; then
-    echo
-    echo "You must choose at least one port!"
-    resourcePorts
-  elif [ "$newPort" -lt 1 ] || [ "$newPort" -gt 65535 ]; then
-    echo
-    echo "You must choose a valid port number! [1-65535] "
-    resourcePorts
-  else
-    RESOURCE_PORT+=("$newPort")
-    unset newPort
-    read -r -p "Would you you like to add another port? [Y/n] " addPort
-    case "$addPort" in
-      [yY][eE][sS]|[yY]) 
-          resourcePorts
-          ;;
-      *)
-          echo ""
-          ;;
-    esac
+  newPort=$(
+    whiptail --inputbox "\nEnter a new port for this resource:" 8 78 \
+    --title "$title" 3>&1 1>&2 2>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    if [ -z "$newPort" ]; then
+      whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+          8 78 <<<$(echo "You must choose at least one port!")
+      resourcePorts
+    elif [ "$newPort" -lt 1 ] || [ "$newPort" -gt 65535 ]; then
+      whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+          8 78 <<<$(echo "You must choose a valid port number! [1025-65535]")
+      resourcePorts
+    else
+      RESOURCE_PORT+=("$newPort")
+      unset newPort
+      if (whiptail --yesno "Would you like to add another port?" \
+          --title "$title" 8 78) then
+        resourcePorts
+      fi
+    fi
   fi
 }
 
 function resourceGroups {
-  echo
-  read -p "Enter a new group for this resource (Blank for \"all_users\"): " newGroup
-  if [ "$newGroup" != "" ]; then
-    RESOURCE_GROUP+=("$newGroup")
-    unset newGroup
-  fi
-  if [ `echo ${#RESOURCE_GROUP[@]}` -eq 0 ]; then
-    RESOURCE_GROUP+=("all_users")
-  else
-    read -r -p "Would you you like to add another group? [Y/n] " addGroup
-    case "$addGroup" in
-      [yY][eE][sS]|[yY])
+  newGroup=$(
+    whiptail --inputbox "\nEnter a user group for this resource (Blank for \"all_users\"):" \
+      8 78 --title "$title" 3>&1 1>&2 2>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    if [ "$newGroup" != "" ]; then
+      RESOURCE_GROUP+=("$newGroup")
+      unset newGroup
+    fi
+    if [ `echo ${#RESOURCE_GROUP[@]}` -eq 0 ]; then
+      RESOURCE_GROUP+=("all_users")
+    else
+      if (whiptail --yesno "Would you like to add another group?" \
+          --title "$title" 8 78) then
         resourceGroups
-        ;;
-      *)
-        echo ""
-        ;;
-    esac
+      fi
+    fi
   fi
-  echo
 }
 
 function insertDB {
   ## Insert SDP Resource
-  if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from sdp_resource where resource_name='$RESOURCE_NAME' and resource_type='$RESOURCE_TYPE'"` -lt 1 ]; then
-    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource (resource_name, resource_type, resource_enabled, resource_start_date, resource_end_date) values ('$RESOURCE_NAME','$RESOURCE_TYPE','yes',now(),now() + INTERVAL 50 year)"
+  if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+        SELECT count(*)
+        FROM sdp_resource
+        WHERE resource_name='$RESOURCE_NAME'
+        AND resource_type='$RESOURCE_TYPE'"` -lt 1 ]; then
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "
+        INSERT INTO sdp_resource (
+            resource_name, resource_type, resource_enabled,
+            resource_start_date, resource_end_date
+        ) VALUES (
+            '$RESOURCE_NAME','$RESOURCE_TYPE','yes',
+            now(),now() + INTERVAL 50 year
+        )"
   fi
 
   ##Insert Domains
-  if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*)
-        from sdp_resource sr
-        inner join sdp_resource_address as sra on sr.resource_id = sra.resource_id 
-        where resource_name='$RESOURCE_NAME'"` -lt 1 ]; then
-    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource_address (address_name, address_domain, resource_id) values ('$RESOURCE_DOMAIN','$RESOURCE_DOMAIN',(select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'))"
+  if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+        SELECT count(*)
+        FROM sdp_resource sr
+          INNER JOIN sdp_resource_address AS sra ON sr.resource_id = sra.resource_id 
+        WHERE resource_name='$RESOURCE_NAME'"` -lt 1 ]; then
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "
+        INSERT INTO sdp_resource_address (
+            address_name, address_domain, resource_id
+        ) VALUES (
+            '$RESOURCE_DOMAIN','$RESOURCE_DOMAIN',(
+                SELECT resource_id
+                FROM sdp_resource
+                WHERE resource_name='$RESOURCE_NAME'
+            )
+        )"
   fi
 
   ##Insert Groups
   for name in "${RESOURCE_GROUP[@]}"
   do
-    if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) from ugroup where ugroup_name = '$name'"` -lt 1 ] && [ "$name" != "all_users" ]; then
-      mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into ugroup (ugroup_name, ugroup_description) values ('$name','$name')"
+    if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+        SELECT count(*)
+        FROM ugroup
+        WHERE ugroup_name = '$name'"` -lt 1 ] && [ "$name" != "all_users" ]; then
+      mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "
+        INSERT INTO ugroup (
+            ugroup_name, ugroup_description
+        ) VALUES (
+            '$name','$name'
+        )"
     fi
-    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource_group (resource_id,ugroup_id) values ((select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'),(select ugroup_id from ugroup where ugroup_name='$name'))"
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "
+        INSERT INTO sdp_resource_group (
+            resource_id,ugroup_id
+        ) VALUES (
+            (
+                SELECT resource_id
+                FROM sdp_resource
+                WHERE resource_name='$RESOURCE_NAME'
+            ),(
+                SELECT ugroup_id
+                FROM ugroup
+                WHERE ugroup_name='$name'
+            )
+        )"
   done
 
   ##Insert Ports
   for number in "${RESOURCE_PORT[@]}"
   do
-    if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select count(*) 
-        from sdp_resource sr
-        inner join sdp_resource_port as srp on sr.resource_id = srp.resource_id
-        where srp.port_number = '$number'
-        and sr.resource_name='$RESOURCE_NAME'"` -lt 1 ]; then
-      mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_resource_port (port_name,port_number,port_protocol,resource_id) values ('$number','$number','tcp',(select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'))"
+    if [ `mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+        SELECT count(*) 
+        FROM sdp_resource sr
+          INNER JOIN sdp_resource_port AS srp ON sr.resource_id = srp.resource_id
+        WHERE srp.port_number = '$number'
+        AND sr.resource_name='$RESOURCE_NAME'"` -lt 1 ]; then
+      mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "
+        INSERT INTO sdp_resource_port (
+            port_name,port_number,port_protocol,resource_id
+        ) VALUES (
+            '$number','$number','tcp',(
+                SELECT resource_id
+                FROM sdp_resource
+                WHERE resource_name='$RESOURCE_NAME'
+            )
+        )"
     fi
   done
 
   ##Gateway Association
   if [ "$GATEWAY_ADDRESS" != "DIRECT" ]; then
-    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_gateway_resource (gateway_id,resource_id) values ((select gateway_id from gateway where gateway_ip='$GATEWAY_ADDRESS'),(select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'))"
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "
+        INSERT INTO sdp_gateway_resource (
+            gateway_id,resource_id
+        ) VALUES (
+            (
+                SELECT gateway_id
+                FROM gateway
+                WHERE gateway_ip='$GATEWAY_ADDRESS'
+            ),(
+                SELECT resource_id
+                FROM sdp_resource
+                WHERE resource_name='$RESOURCE_NAME'
+            )
+        )"
   else
-    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "insert into sdp_gateway_resource (gateway_id,resource_id) values ((select gateway_id from gateway where gateway_ip='$GATEWAY_GATEWAY'),(select resource_id from sdp_resource where resource_name='$RESOURCE_NAME'))"
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "
+        INSERT INTO sdp_gateway_resource (
+            gateway_id,resource_id
+        ) VALUES (
+            (
+                SELECT gateway_id
+                FROM gateway
+                WHERE gateway_ip='$GATEWAY_GATEWAY'
+            ),(
+                SELECT resource_id
+                FROM sdp_resource
+                WHERE resource_name='$RESOURCE_NAME'
+            )
+        )"
   fi
 
   ###RADIUS route rules for tcp resources
   #if [ $RESOURCE_TYPE == "tcp" ]; then
   #  for name in "${RESOURCE_GROUP[@]}"
   #  do
-  #    mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "insert into radgroupreply (groupname, attribute, op, value) values ('$name','Framed-Route','+=','${RESOURCE_DOMAIN}/32 ${CLIENT_GATEWAY}/32  1')"
+  #    mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "
+  #      INSERT INTO radgroupreply (
+  #          groupname, attribute, op, value
+  #      ) VALUES (
+  #          '$name','Framed-Route','+=','${RESOURCE_DOMAIN}/32 ${CLIENT_GATEWAY}/32  1'
+  #      )"
   #  done
   #fi
 }
@@ -209,96 +317,117 @@ function writeSquid {
 }
 
 function defineResource {
-  resourceGateway
-  resourceType
-  resourceDomain
-  resourcePorts
-  resourceGroups
+  RESOURCE_PORT=()
+  RESOURCE_GROUP=()
 
-  echo
-  echo "RESOURCE DEFINITION:"
-  echo
-  echo "Resource Name = $RESOURCE_NAME"
-  echo "Resource Type = $RESOURCE_TYPE"
-  echo "Resource Ports = ${RESOURCE_PORT[@]}"
-  echo "Resource Groups = ${RESOURCE_GROUP[@]}"
+  resourceGateway
+  if [ $exitstatus = 0 ]; then
+    resourceType
+    if [ $exitstatus = 0 ]; then
+      resourceDomain
+      if [ $exitstatus = 0 ]; then
+        resourcePorts
+        if [ $exitstatus = 0 ]; then
+          resourceGroups
+          if [ $exitstatus = 0 ]; then
+            whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+              16 78 <<<$(echo "\nRESOURCE DEFINITION:\n"
+              echo "\nResource Name = $RESOURCE_NAME"
+              echo "\nResource Type = $RESOURCE_TYPE"
+              echo "\nResource Ports = ${RESOURCE_PORT[@]}"
+              echo "\nResource Groups = ${RESOURCE_GROUP[@]}"
+            )
+          fi
+        fi
+      fi
+    fi
+  fi
 }
 
 function addResource {
-  echo "**Enter options to create \"$RESOURCE_NAME\"**"
   defineResource
   insertDB
   writeSquid
 }
 
 function addResourceStart {
-  read -p "Enter a name for the resource to add: " RESOURCE_NAME
-  RESOURCE_NAME="$(tr " " "_" <<<$RESOURCE_NAME)"
-  echo
-  checkResource
-  if [ "$RESOURCE_EXISTS" -gt 0 ]; then
-    read -r -p "\"$RESOURCE_NAME\" already exists. Would you like to update instead? [Y/n] " response
-    case "$response" in
-      [yY][eE][sS]|[yY])
+  title="Add a New Resource"
+  RESOURCE_NAME=$(
+    whiptail --title "$title" --inputbox "\nEnter a name for the resource to add:" \
+    8 78 3>&2 2>&1 1>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    RESOURCE_NAME="$(tr " " "_" <<<$RESOURCE_NAME)"
+    checkResource
+    if [ "$RESOURCE_EXISTS" -gt 0 ]; then
+      if (whiptail --yesno "\"$RESOURCE_NAME\" already exists. Would you like to update instead?" \
+          --title "$title" 8 78) then
         updateResource
-        ;;
-      *)
-        echo ""
-        ;;
-    esac
-  else
-    addResource
+      fi
+    else
+      addResource
+    fi
   fi
 
   optionsMenu
 }
 
 function updateResource {
-  echo "Current definition of \"$RESOURCE_NAME\":"
-  mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "
-        SELECT DISTINCT(resource_name) 'Resource Name',
-            address_domain 'Domain/IP',
-            resource_type 'Type',
-            GROUP_CONCAT(DISTINCT(port_number)) 'Port',
-            GROUP_CONCAT(DISTINCT(ugroup_name)) 'Groups'
+  whiptail --textbox --title "$title" --scrolltext /dev/stdin 25 78 <<<"$(
+    echo 'Current definition of "'$RESOURCE_NAME'":\n'
+    mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e '
+        SELECT CONCAT(
+            resource_name,";",
+            address_domain,";",
+            resource_type,";",
+            GROUP_CONCAT(DISTINCT(port_number)),";",
+            GROUP_CONCAT(DISTINCT(ugroup_name))
+        ) "<RESOURCE NAME>;<DOMAIN/IP>;<TYPE>;<PORT>;<GROUPS>"
         FROM squid_rules_helper
-        WHERE resource_name = '$RESOURCE_NAME'
+        WHERE resource_name = "'$RESOURCE_NAME'"
         GROUP BY resource_name
-        ORDER BY 'Resource Name'"
-  echo
-  echo "**Enter options to update \"$RESOURCE_NAME\"**"
+        ORDER BY "Resource Name"
+    ' | column -t -s ';' )"
   defineResource
-  deleteResource
-  insertDB
-  writeSquid
+
+  if [ $exitstatus = 0 ]; then
+    deleteResource
+    insertDB
+    writeSquid
+  fi
 }
 
 function updateResourceStart {
-  read -p "Enter a name for the resource to update: " RESOURCE_NAME
-  RESOURCE_NAME="$(tr " " "_" <<<$RESOURCE_NAME)"
-  echo
-  checkResource
-  if [ "$RESOURCE_EXISTS" -gt 0 ]; then
+  title="Update an Existing Resource"
+  getActiveResources
+  RESOURCE_NAME=$(
+    whiptail --title "$title" --menu "\nChoose the resource to update:" \
+    25 78 16 "${activeResourcesArr[@]}" 3>&2 2>&1 1>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    RESOURCE_NAME="$(tr " " "_" <<<$RESOURCE_NAME)"
     updateResource
-  else
-    read -r -p "\"$RESOURCE_NAME\" does not exist. Would you like to add instead? [Y/n] " response
-    case "$response" in
-      [yY][eE][sS]|[yY])
-        addResource
-        ;;
-      *)
-        echo ""
-        ;;
-    esac
   fi
 
   optionsMenu
 }
 
 function deleteResource {
-  RESOURCE_DOMAIN=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "select sra.address_domain from sdp_resource_address sra, sdp_resource sr where sra.resource_id = sr.resource_id and sr.resource_name = '$RESOURCE_NAME'"`
-  mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "delete from sdp_resource where resource_name='$RESOURCE_NAME'"
-  #mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "delete from radgroupreply where value like '${RESOURCE_DOMAIN}%'"
+  RESOURCE_DOMAIN=`mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -sNe "
+        SELECT sra.address_domain
+        FROM sdp_resource_address sra
+          INNER JOIN sdp_resource AS sr ON sra.resource_id = sr.resource_id
+        WHERE sr.resource_name = '$RESOURCE_NAME'"`
+  mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e "
+        DELETE FROM sdp_resource
+        WHERE resource_name='$RESOURCE_NAME'"
+  #mysql -h$HOST -P$PORT -u$USER -p$PASS radius -e "
+  #      DELETE FROM radgroupreply
+  #      WHERE value LIKE '${RESOURCE_DOMAIN}%'"
   sed -i "/\ ${RESOURCE_NAME}_domain/d" $SQUID_ACL_CONF
   sed -i "/\ ${RESOURCE_NAME}_port/d" $SQUID_ACL_CONF
   sed -i "/\ ${RESOURCE_NAME}_group/d" $SQUID_ACL_CONF
@@ -308,57 +437,57 @@ function deleteResource {
 }
 
 function deleteResourceStart {
-  read -p "Enter the name of the resource to delete: " RESOURCE_NAME
-  echo
-  checkResource
-  if [ "$RESOURCE_EXISTS" -gt 0 ]; then
-    deleteResource
-    echo "**$RESOURCE_NAME has been deleted**"
-  else
-    echo "**Resource does not exist!!**"
+  title="Delete a Resource"
+  getActiveResources
+  RESOURCE_NAME=$(
+    whiptail --title "$title" --menu "\nChoose the resource to delete:" \
+    25 78 16 "${activeResourcesArr[@]}" 3>&2 2>&1 1>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    if (whiptail --yesno "You are about to delete $RESOURCE_NAME. Continue?" \
+          --title "$title" 8 78) then
+      deleteResource
+      whiptail --textbox --title "$title" --scrolltext /dev/stdin \
+        25 78 <<<$(echo "$RESOURCE_NAME has been deleted")
+    fi
   fi
-  echo
 
   optionsMenu
 }
 
 function optionsMenu {
-  echo
-  echo "RESOURCE MANAGEMENT OPTIONS"
-  # Prompt for an option
-  PS3='Choose an Option to Continue: '
-  options=("List Resources" "Add a Resource" "Update a Resource" "Delete a Resource"
-        "Rebuild Squid Configuration" "Exit")
-    select opt in "${options[@]}"
-    do
-      case $opt in
-        "List Resources")
-           listResources
-           break
-           ;;
-         "Add a Resource")
-           addResourceStart
-           break
-           ;;
-         "Update a Resource")
-           updateResourceStart
-           break
-           ;;
-         "Delete a Resource")
-           deleteResourceStart
-           break
-           ;;
-         "Rebuild Squid Configuration")
-           bash $SCRIPTS_DIR/rebuild_squid_config.sh
-           break
-           ;;
-         "Exit")
-           exit
-           ;;
-         *) echo invalid option;;
-       esac
-    done
-  optionsMenu
+  opt=$(
+    whiptail --title "RESOURCE MANAGEMENT OPTIONS" --menu "\nChoose an item to continue:" \
+    25 78 16 \
+    "List Resources" "List configured resources." \
+    "Add a Resource" "Add a new resource." \
+    "Update a Resource" "Update an existing resource." \
+    "Delete a Resource" "Remove a resource." \
+    "Rebuild Squid Configuration" "Rebuild all squid configurations." 3>&2 2>&1 1>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    case $opt in
+      "List Resources")
+         listResources
+         ;;
+       "Add a Resource")
+         addResourceStart
+         ;;
+       "Update a Resource")
+         updateResourceStart
+         ;;
+       "Delete a Resource")
+         deleteResourceStart
+         ;;
+       "Rebuild Squid Configuration")
+         bash $SCRIPTS_DIR/rebuild_squid_config.sh
+         ;;
+    esac
+  fi
 }
 
 optionsMenu
