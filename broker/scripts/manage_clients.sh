@@ -12,23 +12,20 @@
 DB_CONFIG=/opt/sdp/scripts/config.sh
 . $DB_CONFIG
 
-# Either read the CN from $1 or prompt for it
-if [ -z "$1" ]
-	then echo -n "Enter new client common name (CN): "
-	read -e CN
-else
-	CN=$1
-fi
-
-# Ensure CN isn't blank
-if [ -z "$CN" ]
-	then echo "You must provide a CN."
-	exit
-fi
-
-# Extract username portion from CN
-USERNAME=`echo $CN | sed -e 's/\@.*//'`
-echo "Username is $USERNAME"
+function showUsers {
+  title="List Users"
+  whiptail --textbox --title "$title" --scrolltext /dev/stdin 25 78 <<<"$(
+        echo 'Configured Users:\n\n'
+        mysql -h$HOST -P$PORT -u$USER -p$PASS $DB -e '
+            SELECT CONCAT(
+                  user_mail,";",
+                  user_enable
+            ) "<USER NAME>;<ENABLED>"
+            FROM user
+            ORDER BY user_mail
+        ' | column -t -s ';')"
+  optionsMenu
+}
 
 function createCert {
 	# Enter the easy-rsa directory and establish the default variables
@@ -159,50 +156,114 @@ function createDbEntries {
     enableDbEntries
 }
 
-# Check the CN doesn't already exist
-if [ -f $OPENVPN_KEYS/$CN.crt ]; then
-  echo "Certificate with the CN $CN alread exists!"
-  PS3='Choose an Option to Continue: '
-  options=("Resend Configuration" "Revoke cert and resend Configuration"
-      "Disable User" "Exit")
-    select opt in "${options[@]}"
-      do
-        case $opt in
-          "Resend Configuration")
-            echo "Resending Configuration now"
-            createOvpn
-            createWinBundle
-            enableDbEntries
-            emailCert
-            break
-            ;;
-          "Revoke cert and resend Configuration")
-            echo "Creating and sending a new Configuration"
-            revokeCert
-            createCert
-            createOvpn
-            createWinBundle
-            enableDbEntries
-            emailCert
-            break
-            ;;
-          "Disable User")
-            echo "Disabling User"
-            revokeCert
-            disableDbEntries
-            break
-            ;;
-          "Exit")
-            exit
-            ;;
-          *) echo invalid option;;
-        esac
-      done
-    exit
+function getUserName {
+  # Extract username portion from CN
+  USERNAME=`echo $CN | sed -e 's/\@.*//'`
+}
+
+function getCommonName {
+  CN=$(
+    whiptail --inputbox "\nEnter user's email address:" 8 78 \
+    --title "$title" 3>&1 1>&2 2>&3
+  )
+  getUserName
+  exitstatus=$?
+}
+
+function createUser {
+  title="Create New User"
+  getCommonName
+  if [ $exitstatus = 0 ]; then
+    createCert
+    createOvpn
+    createWinBundle
+    createDbEntries
+    emailCert
+  fi
+  optionsMenu
+}
+
+function resendConfigs {
+  title="Resend Configurations"
+  getCommonName
+  if [ $exitstatus = 0 ]; then
+    createOvpn
+    createWinBundle
+    enableDbEntries
+    emailCert
+  fi
+  optionsMenu
+}
+
+function revokeResendConfigs {
+  title="Securely Resend Configurations"
+  getCommonName
+  if [ $exitstatus = 0 ]; then
+    revokeCert
+    createCert
+    createOvpn
+    createWinBundle
+    enableDbEntries
+    emailCert
+  fi
+  optionsMenu
+}
+
+function disableUser {
+  title="Disable User"
+  getCommonName
+  if [ $exitstatus = 0 ]; then
+    revokeCert
+    disableDbEntries
+  fi
+  optionsMenu
+}
+
+function optionsMenu {
+  opt=$(
+    whiptail --title "USER MANAGEMENT OPTIONS" --menu "\nChoose an item to continue:" \
+    25 78 16 \
+    "List Users" "Show a list of all current users." \
+    "Create/Reactivate User" "Create a new user or activate a disabled user." \
+    "Resend Configuration" "Resend the latest configuration to a user." \
+    "Secure Resend" "Revoke certificate and send user a new configuration." \
+    "Disable User" "Disable an existing user account." 3>&2 2>&1 1>&3
+  )
+  exitstatus=$?
+
+  if [ $exitstatus = 0 ]; then
+    case $opt in
+      "List Users")
+        showUsers
+        ;;
+      "Create/Reactivate User")
+        createUser
+        ;;
+      "Resend Configuration")
+        resendConfigs
+        ;;
+      "Secure Resend")
+        revokeResendConfigs
+        ;;
+      "Disable User")
+        disableUser
+        ;;
+    esac
+  fi
+}
+
+if [ -z "$1" ]; then
+  optionsMenu
 else
-  createCert
-  createOvpn
-  createWinBundle
-  createDbEntries
-  emailCert
+  CN=$1
+  getUserName
+  if [ -e $OPENVPN_KEYS/$CN.crt ]; then
+    optionsMenu
+  else
+    createCert
+    createOvpn
+    createWinBundle
+    createDbEntries
+    emailCert
+  fi
 fi

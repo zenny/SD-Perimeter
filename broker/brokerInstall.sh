@@ -576,6 +576,7 @@ function configureRedsocks {
     dpkg -i redsocks_0.5-1_amd64.deb
     echo "Fixing dpkg error via apt-get"
     apt-get -f install -y
+    rm -f redsocks_0.5-1_amd64.deb
   fi
   REDSOCKSCONF=/etc/redsocks.conf
   if [ ! -e "${REDSOCKSCONF}.orig" ]; then

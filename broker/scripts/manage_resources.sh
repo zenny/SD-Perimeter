@@ -28,7 +28,7 @@ function listResources {
             ) "<RESOURCE NAME>;<DOMAIN/IP>;<TYPE>;<PORT>;<GROUPS>"
             FROM squid_rules_helper
             GROUP BY resource_name
-            ORDER BY "Resource Name"
+            ORDER BY resource_name
         ' | column -t -s ';')"
   optionsMenu
 }
